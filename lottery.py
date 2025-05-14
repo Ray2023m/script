@@ -1,6 +1,7 @@
 '''
-双色球，超级大乐透开奖信息脚本
-适配青龙面板
+new Env('彩票开奖')
+cron: 0 7 * * *
+
 '''
 import urllib.request
 import datetime
