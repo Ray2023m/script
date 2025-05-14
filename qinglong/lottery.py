@@ -48,26 +48,27 @@ def get_xinfo(url, headers, is_ssq=True):
         update_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
 
         if is_ssq:
-            msg = f"""✨【{title}第 {period} 期开奖结果】✨
+            msg = f"""✨✨【{title}第 {period} 期开奖结果】✨✨
 
 ⏰ 开奖时间：{formatted_draw_time}（{weekday}）
-⏳ 兑奖截止日期：{formatted_deadline}
+⏳ 兑奖截止：{formatted_deadline}
 
 🏆 开奖号码：
 ════════════════
 🔴{numbers[0]}  🔴{numbers[1]}  🔴{numbers[2]}  🔴{numbers[3]}  🔴{numbers[4]}  🔴{numbers[5]}  🔵{numbers[6]}
 ════════════════
 
-📅 下期开奖：每周二、四、日 20:30
+📅 双色球开奖日：每周二、四、日 20:30
 🌐 官方网站：https://www.zhcw.com/kjxx/ssq/
 📞 客服电话：95086
 
 🔄 数据更新时间：{update_time}
 """
         else:
-            msg = f"""💫【超级大乐透第 {period} 期开奖结果】💫
+            msg = f"""✨✨【超级大乐透{period}期开奖结果】✨✨
+
 ⏰ 开奖时间：{formatted_draw_time}（{weekday}）
-⏳ 兑奖截止日期：{formatted_deadline}
+⏳ 兑奖截止：{formatted_deadline}
 
 🏆 开奖号码（前区 + 后区）：
 ══════════════════════
@@ -78,7 +79,6 @@ def get_xinfo(url, headers, is_ssq=True):
 🌐 官方网站：https://www.lottery.gov.cn/
 
 🔄 数据更新时间：{update_time}
-
 """
         print("✅ 格式化内容生成完毕")
         return title, msg
