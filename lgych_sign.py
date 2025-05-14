@@ -10,6 +10,7 @@ import random
 import time
 import urllib3
 import ssl
+from datetime import datetime
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
@@ -42,7 +43,7 @@ class BluRayConcertSigner:
         """从环境变量获取蓝光演唱会 Cookie"""
         cookie_str = os.getenv("LGYCH_COOKIE")
         if not cookie_str:
-            logger.error("未找到环境变量 LGYCH_COOKIE，请配置后重试")
+            logger.error("❌ 未找到环境变量 LGYCH_COOKIE，请配置后重试")
             raise ValueError("环境变量 LGYCH_COOKIE 未设置")
 
         cookie_dict = {}
@@ -53,7 +54,7 @@ class BluRayConcertSigner:
                     cookie_dict[name] = value
             return cookie_dict
         except Exception as e:
-            logger.error(f"解析 Cookie 失败: {e}")
+            logger.error(f"❌ 解析 Cookie 失败: {e}")
             raise
 
     def _create_session(self):
@@ -103,15 +104,39 @@ class BluRayConcertSigner:
             return points, gold
 
         except Exception as e:
-            logger.error(f"获取用户信息失败: {e}")
+            logger.error(f"❌ 获取用户信息失败: {e}")
             return "N/A", "N/A"
+
+    def _format_output(self, title, status, details, is_success=True):
+        """格式化输出内容"""
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        border = "⭐" * 15
+        emoji = "✅" if is_success else "ℹ️" if status == "已签到" else "⚠️"
+        
+        content = (
+            f"\n{border}\n"
+            f"{emoji} {title}\n"
+            f"📅 时间: {current_time}\n"
+            f"🔖 状态: {status}\n"
+            f"------------------------\n"
+        )
+        
+        for detail in details:
+            content += f"{detail}\n"
+            
+        content += (
+            f"------------------------\n"
+            f"🌐 官网: {self.SITE_URL}\n"
+            f"{border}\n"
+        )
+        return content
 
     def sign_in(self):
         """执行蓝光演唱会签到流程"""
         try:
             time.sleep(round(random.uniform(1, 3), 2))
             old_points, old_gold = self.get_user_info()
-            logger.info(f"签到前 - 积分: {old_points}, 金币: {old_gold}")
+            logger.info(f"🔄 签到前状态 - 积分: {old_points}, 金币: {old_gold}")
 
             data = {"action": "user.checkin"}
             response = self.session.post(
@@ -133,76 +158,84 @@ class BluRayConcertSigner:
             point_diff = (
                 int(new_points) - int(old_points)
                 if old_points.isdigit() and new_points.isdigit()
-                else "?"
+                else "N/A"
             )
 
             if "金币" in result_str:
-                content = (
-                    f"========================\n"
-                    f"✅ 蓝光演唱会 签到成功\n"
-                    f"------------------------\n"
-                    f"📅 状态：签到成功\n"
-                    f"🪙 积分：{new_points}（+{point_diff}）\n"
-                    f"💰 金币：{new_gold}\n"
-                    f"🔗 官网：{self.SITE_URL}\n"
-                    f"========================"
+                details = [
+                    f"🪙 当前积分: {new_points}",
+                    f"📈 积分变化: +{point_diff}",
+                    f"💰 当前金币: {new_gold}"
+                ]
+                content = self._format_output(
+                    "蓝光演唱会签到成功", 
+                    "签到成功", 
+                    details
                 )
                 logger.info(content)
-                notify.send("蓝光演唱会 签到成功 ✅", content)  # 使用 notify 发送通知
+                notify.send("蓝光演唱会 签到成功 ✅", content)
                 return True
 
             elif "已经" in result_str:
-                content = (
-                    f"========================\n"
-                    f"ℹ️ 蓝光演唱会 已签到\n"
-                    f"------------------------\n"
-                    f"📅 状态：今日已签到\n"
-                    f"🪙 积分：{new_points}\n"
-                    f"💰 金币：{new_gold}\n"
-                    f"🔗 官网：{self.SITE_URL}\n"
-                    f"========================"
+                details = [
+                    f"🪙 当前积分: {new_points}",
+                    f"💰 当前金币: {new_gold}",
+                    f"ℹ️ 今日已签到，无需重复操作"
+                ]
+                content = self._format_output(
+                    "蓝光演唱会签到状态", 
+                    "已签到", 
+                    details,
+                    is_success=False
                 )
                 logger.info(content)
-                notify.send("蓝光演唱会 今日已签到 ℹ️", content)  # 使用 notify 发送通知
+                notify.send("蓝光演唱会 今日已签到 ℹ️", content)
                 return False
 
             else:
-                content = (
-                    f"========================\n"
-                    f"⚠️ 蓝光演唱会 签到返回未知结果\n"
-                    f"------------------------\n"
-                    f"{result_str}\n"
-                    f"🔗 官网：{self.SITE_URL}\n"
-                    f"========================"
+                details = [
+                    f"❓ 返回结果: {result_str}",
+                    f"🪙 当前积分: {new_points}",
+                    f"💰 当前金币: {new_gold}"
+                ]
+                content = self._format_output(
+                    "蓝光演唱会签到异常", 
+                    "未知结果", 
+                    details,
+                    is_success=False
                 )
                 logger.warning(content)
-                notify.send("蓝光演唱会 签到异常 ⚠️", content)  # 使用 notify 发送通知
+                notify.send("蓝光演唱会 签到异常 ⚠️", content)
                 return False
 
         except requests.exceptions.RequestException as e:
-            content = (
-                f"========================\n"
-                f"❌ 蓝光演唱会 网络请求失败\n"
-                f"------------------------\n"
-                f"{str(e)}\n"
-                f"🔗 官网：{self.SITE_URL}\n"
-                f"========================"
+            details = [
+                f"❌ 错误信息: {str(e)}",
+                f"🌐 请检查网络连接或网站状态"
+            ]
+            content = self._format_output(
+                "蓝光演唱会签到失败", 
+                "网络请求失败", 
+                details,
+                is_success=False
             )
             logger.error(content)
-            notify.send("蓝光演唱会 网络异常 ❌", content)  # 使用 notify 发送通知
+            notify.send("蓝光演唱会 网络异常 ❌", content)
             return False
 
         except Exception as e:
-            content = (
-                f"========================\n"
-                f"❌ 蓝光演唱会 签到出错\n"
-                f"------------------------\n"
-                f"{str(e)}\n"
-                f"🔗 官网：{self.SITE_URL}\n"
-                f"========================"
+            details = [
+                f"❌ 错误信息: {str(e)}",
+                f"🛠️ 请检查程序配置或联系开发者"
+            ]
+            content = self._format_output(
+                "蓝光演唱会签到失败", 
+                "程序错误", 
+                details,
+                is_success=False
             )
             logger.error(content)
-            notify.send("蓝光演唱会 程序错误 ❌", content)  # 使用 notify 发送通知
+            notify.send("蓝光演唱会 程序错误 ❌", content)
             return False
 
 if __name__ == "__main__":
@@ -210,5 +243,5 @@ if __name__ == "__main__":
         signer = BluRayConcertSigner()
         signer.sign_in()
     except Exception as e:
-        logger.error(f"程序初始化失败: {e}")
-        notify.send("蓝光演唱会 启动失败 ❌", str(e))  # 使用 notify 发送通知
+        logger.error(f"❌ 程序初始化失败: {e}")
+        notify.send("蓝光演唱会 启动失败 ❌", str(e))
