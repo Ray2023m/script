@@ -57,22 +57,26 @@ class BluRayConcertSigner:
             raise
 
     def _create_session(self):
-        """创建带重试机制的 requests 会话并设置 SSLContext"""
+        """创建带重试机制的 requests 会话并设置 SSL 配置"""
         session = requests.Session()
 
         # 创建 SSLContext
         context = ssl.create_default_context()
         context.set_ciphers('DEFAULT')
 
-        # 设置重试机制
-        retry_strategy = Retry(
-            total=5,  # 增加重试次数
-            backoff_factor=2,  # 增加退避因子，使得每次重试的等待时间逐渐增加
-            status_forcelist=[408, 429, 500, 502, 503, 504]  # 重试的 HTTP 状态码
+        # 配置 urllib3 连接池
+        adapter = HTTPAdapter(
+            max_retries=Retry(
+                total=5,  # 增加重试次数
+                backoff_factor=2,  # 增加退避因子，使得每次重试的等待时间逐渐增加
+                status_forcelist=[408, 429, 500, 502, 503, 504]  # 重试的 HTTP 状态码
+            )
         )
-        adapter = HTTPAdapter(ssl_context=context, max_retries=retry_strategy)
         session.mount("https://", adapter)
         session.mount("http://", adapter)
+
+        # 通过 urllib3 设置 SSL 配置
+        session.verify = False  # 关闭证书验证
 
         return session
 
