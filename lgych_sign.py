@@ -8,9 +8,13 @@ import re
 import logging
 import random
 import time
+import urllib3
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
+
+# 关闭 SSL 警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 通知模块，确保与 notify.py 同目录
 try:
@@ -78,7 +82,7 @@ class BluRayConcertSigner:
                 headers=self.headers,
                 cookies=self.cookies,
                 timeout=10,
-                verify=False
+                verify=False  # 禁用 SSL 证书验证
             )
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -110,7 +114,7 @@ class BluRayConcertSigner:
                 cookies=self.cookies,
                 data=data,
                 timeout=10,
-                verify=False
+                verify=False  # 禁用 SSL 证书验证
             )
 
             try:
@@ -144,61 +148,4 @@ class BluRayConcertSigner:
             elif "已经" in result_str:
                 content = (
                     f"========================\n"
-                    f"ℹ️ 蓝光演唱会 已签到\n"
-                    f"------------------------\n"
-                    f"📅 状态：今日已签到\n"
-                    f"🪙 积分：{new_points}\n"
-                    f"💰 金币：{new_gold}\n"
-                    f"🔗 官网：{self.SITE_URL}\n"
-                    f"========================"
-                )
-                logger.info(content)
-                send("蓝光演唱会 今日已签到 ℹ️", content)
-                return False
-
-            else:
-                content = (
-                    f"========================\n"
-                    f"⚠️ 蓝光演唱会 签到返回未知结果\n"
-                    f"------------------------\n"
-                    f"{result_str}\n"
-                    f"🔗 官网：{self.SITE_URL}\n"
-                    f"========================"
-                )
-                logger.warning(content)
-                send("蓝光演唱会 签到异常 ⚠️", content)
-                return False
-
-        except requests.exceptions.RequestException as e:
-            content = (
-                f"========================\n"
-                f"❌ 蓝光演唱会 网络请求失败\n"
-                f"------------------------\n"
-                f"{str(e)}\n"
-                f"🔗 官网：{self.SITE_URL}\n"
-                f"========================"
-            )
-            logger.error(content)
-            send("蓝光演唱会 网络异常 ❌", content)
-            return False
-
-        except Exception as e:
-            content = (
-                f"========================\n"
-                f"❌ 蓝光演唱会 签到出错\n"
-                f"------------------------\n"
-                f"{str(e)}\n"
-                f"🔗 官网：{self.SITE_URL}\n"
-                f"========================"
-            )
-            logger.error(content)
-            send("蓝光演唱会 程序错误 ❌", content)
-            return False
-
-if __name__ == "__main__":
-    try:
-        signer = BluRayConcertSigner()
-        signer.sign_in()
-    except Exception as e:
-        logger.error(f"程序初始化失败: {e}")
-        send("蓝光演唱会 启动失败 ❌", str(e))
+                    f"ℹ️ 蓝光
