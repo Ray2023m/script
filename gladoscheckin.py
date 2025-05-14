@@ -4,7 +4,7 @@
 """
 File: Gladoscheckin.py(GLaDOS签到)
 Author: Hennessey
-cron: 40 0 * * *
+cron: 40 6 * * *
 new Env('GLaDOS签到');
 Update: 2023/7/27
 使用方法：青龙面板 添加环境变量：GR_COOKIE
