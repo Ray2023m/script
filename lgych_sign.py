@@ -9,6 +9,7 @@ import logging
 import random
 import time
 import urllib3
+import ssl
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
@@ -56,16 +57,23 @@ class BluRayConcertSigner:
             raise
 
     def _create_session(self):
-        """创建带重试机制的 requests 会话"""
+        """创建带重试机制的 requests 会话并设置 SSLContext"""
         session = requests.Session()
+
+        # 创建 SSLContext
+        context = ssl.create_default_context()
+        context.set_ciphers('DEFAULT')
+
+        # 设置重试机制
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=1,
-            status_forcelist=[408, 429, 500, 502, 503, 504]
+            total=5,  # 增加重试次数
+            backoff_factor=2,  # 增加退避因子，使得每次重试的等待时间逐渐增加
+            status_forcelist=[408, 429, 500, 502, 503, 504]  # 重试的 HTTP 状态码
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
+        adapter = HTTPAdapter(ssl_context=context, max_retries=retry_strategy)
         session.mount("https://", adapter)
+        session.mount("http://", adapter)
+
         return session
 
     def get_user_info(self):
