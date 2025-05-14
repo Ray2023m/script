@@ -2,9 +2,14 @@
 new Env('阡陌居签到');
 cron: 40  6 * * *
 '''
+'''
+new Env('阡陌居签到');
+cron: 40 6 * * *
+'''
+
 # 阡陌居自动签到 - 青龙面板日志增强版
 # 环境变量：QMJ_COOKIE（从浏览器复制完整 cookie）
-# 阡陌居自动签到 - 含经验/等级/连续签到天数输出
+# 含经验/等级/连续签到天数输出
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -58,13 +63,14 @@ def get_signin_link():
 
 
 def extract_reward_info(html):
-    """从返回页面中提取奖励、经验、等级、连续签到信息"""
+    """从返回页面中提取签到结果信息（只保留你关心的字段）"""
     soup = BeautifulSoup(html, "html.parser")
     info = soup.find("div", class_="c")
     if not info:
         info = soup.find("div", class_="msgbox")  # 兼容其他结构
+
     if info:
-        keywords = ["获得", "积分", "金钱", "经验", "等级", "连续", "天数"]
+        keywords = ["累计已签到", "本月已累计签到", "签到时间", "铜币", "等级"]
         reward_lines = []
         for p in info.find_all("p"):
             text = p.get_text(strip=True)
@@ -100,7 +106,7 @@ def perform_signin(signin_url):
         reward = extract_reward_info(res.text)
 
         if "已经签到" in res.text:
-            return f"✔️ 今日已签到，无需重复（心情：{MOOD_NAME}）"
+            return f"✔️ 今日已签到，无需重复（心情：{MOOD_NAME}）\n{reward if reward else '✅ 无奖励信息显示'}"
         elif "签到成功" in res.text or "成功" in reward:
             return f"🎉 签到成功！（心情：{MOOD_NAME}）\n{reward if reward else '✅ 无奖励信息显示'}"
         else:
@@ -125,4 +131,7 @@ else:
     result = "⚠️ 未获取到签到链接，可能已签到或页面出错"
 
 print(f"\n📌 最终结果：\n{result}")
-send("阡陌居签到通知", result)
+try:
+    send("阡陌居签到通知", result)
+except Exception as e:
+    print(f"⚠️ 通知发送失败：{e}")
