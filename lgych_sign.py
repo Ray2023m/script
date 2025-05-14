@@ -1,6 +1,6 @@
 '''
 new Env('蓝光演唱会签到');
-cron: 40 06 * * *
+cron: 40 6 * * *
 '''
 import os
 import requests
