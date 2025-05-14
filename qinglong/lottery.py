@@ -1,3 +1,7 @@
+'''
+双色球，超级大乐透开奖信息脚本
+适配青龙面板
+'''
 import urllib.request
 import datetime
 from lxml import etree
