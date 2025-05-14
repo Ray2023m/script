@@ -1,5 +1,6 @@
 '''
-69机场签到脚本
+cron: 40 6 * * *
+new Env('69机场签到');
 添加环境变量：ACCOUNT=your.airport.com|you@example.com|yourpassword
 '''
 import requests
