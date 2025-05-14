@@ -5,7 +5,7 @@ cron: 40  6 * * *
 # 阡陌居自动签到 - 青龙面板日志增强版
 # 环境变量：QMJ_COOKIE（从浏览器复制完整 cookie）
 
-# 阡陌居自动签到 - 含经验/等级/连续签到天数输出
+# 阡陌居自动签到 - 青龙面板版（含奖励提取）
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -13,7 +13,7 @@ from notify import send
 import random
 import traceback
 
-# ========== 配置 ==========
+# ========== 环境配置 ==========
 COOKIE = os.getenv("QMJ_COOKIE")
 if not COOKIE:
     print("❌ [错误] 未检测到环境变量 QMJ_COOKIE，请配置后重试。")
@@ -59,17 +59,15 @@ def get_signin_link():
 
 
 def extract_reward_info(html):
-    """从返回页面中提取奖励、经验、等级、连续签到信息"""
+    """从返回页面中提取奖励信息"""
     soup = BeautifulSoup(html, "html.parser")
     info = soup.find("div", class_="c")
-    if not info:
-        info = soup.find("div", class_="msgbox")  # 兼容其他结构
     if info:
-        keywords = ["获得", "积分", "金钱", "经验", "等级", "连续", "天数"]
+        # 提取其中带“获得”、“积分”等字样的行
         reward_lines = []
         for p in info.find_all("p"):
             text = p.get_text(strip=True)
-            if any(k in text for k in keywords):
+            if any(keyword in text for keyword in ["获得", "积分", "金钱", "经验"]):
                 reward_lines.append(text)
         return "\n".join(reward_lines)
     return ""
@@ -98,11 +96,12 @@ def perform_signin(signin_url):
         res = session.post(post_url, data=data)
         res.encoding = 'utf-8'
 
+        # 提取奖励信息
         reward = extract_reward_info(res.text)
 
         if "已经签到" in res.text:
             return f"✔️ 今日已签到，无需重复（心情：{MOOD_NAME}）"
-        elif "签到成功" in res.text or "成功" in reward:
+        elif "签到成功" in res.text:
             return f"🎉 签到成功！（心情：{MOOD_NAME}）\n{reward if reward else '✅ 无奖励信息显示'}"
         else:
             print("⚠️ 未检测到成功提示，返回页面内容截断如下：")
