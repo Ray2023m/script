@@ -1,6 +1,6 @@
 '''
 new Env('彩票开奖')
-cron: 0 7 * * *
+cron: 00 21 * * *
 
 '''
 import urllib.request
