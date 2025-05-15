@@ -4,8 +4,7 @@ cron: 12 7 * * *
 PT网站青蛙.织梦喊话脚本
 适配青龙面板
 使用方法：
-   环境变量中添加：QWPT_COOKIES 
-                ZMPT_COOKIES
+   环境变量中添加：QWPT_COOKIES,ZMPT_COOKIES
 '''
 import requests
 import os
