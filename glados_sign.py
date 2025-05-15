@@ -4,7 +4,7 @@
 '''
 cron: 40 6 * * *
 new Env('GLaDOS签到');
-使用方法：青龙面板 添加环境变量：GR_COOKIE
+使用方法：青龙面板 添加环境变量：GLADOS_COOKIE
 '''
 
 import os
