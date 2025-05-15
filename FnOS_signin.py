@@ -3,6 +3,7 @@
 '''
 new Env('FnOS论坛签到');
 cron: 10 7 * * *
+使用方法：
 青龙面板添加环境变量：FNOS_CONFIG="myuser,mypass,baidu_api_key,baidu_secret_key"
 原脚本来自https://github.com/kggzs/FN_AQ;感谢付出！
 此脚本仅修改适配青龙通知，和增加环境变量方便输入
