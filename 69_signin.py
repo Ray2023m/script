@@ -1,7 +1,11 @@
 '''
 cron: 40 6 * * *
 new Env('69机场签到');
-添加环境变量：ACCOUNT=your.airport.com|you@example.com|yourpassword
+
+使用方法：
+青龙面板添加环境变量：ACCOUNT= 69机场地址|注册邮箱|yourpassword
+此脚本来源于https://github.com/cmliussss2024/CF-Workers-checkin，感谢原作者付出！
+通过 AI修改，以适用于青龙面板。
 '''
 import requests
 import os
