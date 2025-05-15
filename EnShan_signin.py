@@ -1,6 +1,8 @@
 '''
 new Env('恩山论坛签到')
 cron: 1 0 * * *
+
+脚本来自于：https://github.com/BNDou/Auto_Check_In。收集仅供个人使用。感谢原作者
 Author       : BNDou
 Date         : 2022-10-30 22:21:48
 LastEditTime: 2025-01-13 22:37:05
