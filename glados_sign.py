@@ -66,7 +66,7 @@ def checkin(cookie):
 
         result = (
             f"账号：{email}\n"
-            f"📬 GLaDOS 签到结果\n"
+            f"📬 GLaDOS机场 签到结果\n"
             f"✅ 状态：{message}\n"
             f"🕐 用时：{time_used:.2f}s\n"
             f"🧧 积分余额：{points_balance} ({change_str})\n"
