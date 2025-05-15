@@ -53,7 +53,7 @@ def get_xinfo(url, headers, is_ssq=True):
         update_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
 
         if is_ssq:
-            msg = f"""✨✨【{title}第 {period} 期开奖结果】✨✨
+            msg = f"""✨【{title}第 {period} 期开奖结果】✨
 
 ⏰ 开奖时间：{formatted_draw_time}（{weekday}）
 ⏳ 兑奖截止：{formatted_deadline}
