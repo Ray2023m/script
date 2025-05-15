@@ -7,13 +7,16 @@ new Env('GLaDOS签到');
 使用方法：青龙面板 添加环境变量：GLADOS_COOKIE
 '''
 
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
 import time
 import requests
 import json
 import logging
 from datetime import date, timedelta
-import notify  
+import notify  # 直接导入你的通知模块
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,14 +62,14 @@ def checkin(cookie):
         left_days = int(float(status_json['data'].get('leftDays', 0)))
 
         points_balance = int(float(checkin_json['list'][0]['balance']))
-        change = int(float(checkin_json['list'][0]['change']))
-        change_str = f"+{change}" if change >= 0 else str(change)
+        diff = 100 - points_balance                # 计算括号内负差值
+        change_str = f"-{diff}"
 
         exp_date = (date.today() + timedelta(days=left_days)).strftime('%Y-%m-%d')
 
         result = (
             f"账号：{email}\n"
-            f"📬 GLaDOS机场 签到结果\n"
+            f"📬 GLaDOS 签到结果\n"
             f"✅ 状态：{message}\n"
             f"🕐 用时：{time_used:.2f}s\n"
             f"🧧 积分余额：{points_balance} ({change_str})\n"
