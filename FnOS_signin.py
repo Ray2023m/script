@@ -3,6 +3,9 @@
 '''
 new Env('FnOS论坛签到');
 cron: 10 7 * * *
+青龙面板添加环境变量：FNOS_CONFIG="myuser,mypass,baidu_api_key,baidu_secret_key"
+原脚本来自https://github.com/kggzs/FN_AQ;感谢！
+此脚本仅修改适配青龙通知，和增加环境变量方便输入
 '''
 import os
 import re
@@ -34,28 +37,26 @@ logger = logging.getLogger(__name__)
 
 # 配置信息
 class Config:
-    # 账号信息
-    USERNAME = 'your_username'  # 修改为你的用户名
-    PASSWORD = 'your_password'  # 修改为你的密码
+    """
+    使用 FNOS_CONFIG 环境变量，格式如下（用英文逗号分隔）：
+      用户名,密码,百度API_KEY,百度SECRET_KEY
+    例如：
+      myuser,mypass,xxxxxxx,yyyyyyy
+    """
+    config_env = os.environ.get('FNOS_CONFIG', '')
+    t = [i.strip() for i in config_env.split(',')] if config_env else []
+    USERNAME = t[0] if len(t) > 0 else ''
+    PASSWORD = t[1] if len(t) > 1 else ''
+    API_KEY = t[2] if len(t) > 2 else ''
+    SECRET_KEY = t[3] if len(t) > 3 else ''
     
-    # 网站URL
     BASE_URL = 'https://club.fnnas.com/'
     LOGIN_URL = BASE_URL + 'member.php?mod=logging&action=login'
     SIGN_URL = BASE_URL + 'plugin.php?id=zqlj_sign'
-    
-    # Cookie文件路径
     COOKIE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cookies.json')
-    
-    # 验证码识别API (百度OCR API)
     CAPTCHA_API_URL = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
-    API_KEY = "your_api_key"  # 替换为你的百度OCR API Key
-    SECRET_KEY = "your_secret_key"  # 替换为你的百度OCR Secret Key
-    
-    # 重试设置
-    MAX_RETRIES = 3  # 最大重试次数
-    RETRY_DELAY = 2  # 重试间隔(秒)
-    
-    # Token缓存文件
+    MAX_RETRIES = 3
+    RETRY_DELAY = 2
     TOKEN_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'token_cache.json')
 
 class FNSignIn:
@@ -466,14 +467,14 @@ class FNSignIn:
         if not self.check_login_status():
             if not self.login():
                 logger.error("登录失败，签到流程终止")
-                result_title = "FNNAS 签到失败"
+                result_title = "FnOS论坛 签到失败"
                 notify_content = "登录失败，流程终止"
                 notify.send(result_title, notify_content)
                 return False
         sign_text, sign_param = self.check_sign_status()
         if sign_text is None or sign_param is None:
             logger.error("获取签到状态失败，签到流程终止")
-            result_title = "FNNAS 签到失败"
+            result_title = "FnOS论坛 签到失败"
             notify_content = "获取签到状态失败"
             notify.send(result_title, notify_content)
             return False
@@ -486,13 +487,13 @@ class FNSignIn:
                     logger.info("===== 签到信息 =====")
                     for key, value in sign_info.items():
                         logger.info(f"{key}: {value}")
-                    result_title = "FNNAS 签到成功"
+                    result_title = "FnOS论坛 签到成功"
                     notify_content = "\n".join([f"{key}: {value}" for key, value in sign_info.items()])
                     notify.send(result_title, notify_content)
                 return True
             else:
                 logger.error("签到失败")
-                result_title = "FNNAS 签到失败"
+                result_title = "FnOS论坛 签到失败"
                 notify_content = "签到失败"
                 notify.send(result_title, notify_content)
                 return False
@@ -503,13 +504,13 @@ class FNSignIn:
                 logger.info("===== 签到信息 =====")
                 for key, value in sign_info.items():
                     logger.info(f"{key}: {value}")
-                result_title = "FNNAS 今日已打卡"
+                result_title = "FnOS论坛 今日已打卡"
                 notify_content = "\n".join([f"{key}: {value}" for key, value in sign_info.items()])
                 notify.send(result_title, notify_content)
             return True
         else:
             logger.warning(f"未知的签到状态: {sign_text}，签到流程终止")
-            result_title = "FNNAS 签到失败"
+            result_title = "FnOS论坛 签到失败"
             notify_content = f"未知状态: {sign_text}"
             notify.send(result_title, notify_content)
             return False
@@ -519,6 +520,11 @@ if __name__ == "__main__":
         if os.environ.get('DEBUG') == '1':
             logger.setLevel(logging.DEBUG)
             logger.debug("调试模式已启用")
+        # 检查环境变量
+        if not (Config.USERNAME and Config.PASSWORD and Config.API_KEY and Config.SECRET_KEY):
+            logger.error("环境变量未配置完整，FNOS_CONFIG 必须设置为“用户名,密码,百度API_KEY,百度SECRET_KEY”（英文逗号分隔）！")
+            notify.send("FnOS论坛 签到失败", "环境变量未配置完整，FNOS_CONFIG 必须设置为“用户名,密码,百度API_KEY,百度SECRET_KEY”（英文逗号分隔）！")
+            exit(1)
         sign = FNSignIn()
         result = sign.run()
         if result:
