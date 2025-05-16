@@ -1,27 +1,30 @@
 '''
-new Env('彩票开奖')
-cron: 00 22 * * *
-
+new Env('彩票开奖信息')
+cron: 20 22 * * *
 '''
-import urllib.request
+import requests
 import datetime
 from lxml import etree
 import notify
 import re
+import warnings
+import urllib3
+
+# 禁用 SSL 警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_xinfo(url, headers, is_ssq=True):
     try:
         print(f"🌐 正在请求数据：{url}")
-        req = urllib.request.Request(url=url, headers=headers)
-        res = urllib.request.urlopen(req).read().decode('gb2312')
+        response = requests.get(url, headers=headers, verify=False, timeout=10)
+        response.encoding = 'gb2312'
         print("✅ 成功获取网页内容")
 
-        html = etree.HTML(res)
+        html = etree.HTML(response.text)
 
         title = html.xpath('//div[@class="kjxq_box02_title_left"]/img/@alt')[0]
         period = html.xpath('//font[@class="cfont2"]/strong/text()')[0]
         numbers = html.xpath('//div[@class="ball_box01"]/ul/li/text()')
-        # 提取开奖时间和兑奖截止日期
         draw_time_text = html.xpath('//span[@class="span_right"]/text()')[0].strip()
         
         print(f"📌 彩种：{title}")
@@ -29,7 +32,6 @@ def get_xinfo(url, headers, is_ssq=True):
         print(f"📌 号码：{' '.join(numbers)}")
         print(f"📌 原始时间文本：{draw_time_text}")
 
-        # 使用正则表达式提取开奖日期和兑奖截止日期
         draw_match = re.search(r'开奖日期：(\d{4}年\d{1,2}月\d{1,2}日)', draw_time_text)
         deadline_match = re.search(r'兑奖截止日期：(\d{4}年\d{1,2}月\d{1,2}日)', draw_time_text)
         
@@ -42,7 +44,6 @@ def get_xinfo(url, headers, is_ssq=True):
         draw_date = datetime.datetime.strptime(draw_date_str, '%Y年%m月%d日')
         deadline_date = datetime.datetime.strptime(deadline_date_str, '%Y年%m月%d日')
         
-        # 假设开奖时间是晚上20:30
         draw_date = draw_date.replace(hour=20, minute=30)
         
         weekday_map = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
@@ -87,20 +88,25 @@ def get_xinfo(url, headers, is_ssq=True):
 """
         print("✅ 格式化内容生成完毕")
         return title, msg
+    except requests.RequestException as e:
+        print(f"❌ 网络请求错误: {e}")
+        return None, None
     except Exception as e:
-        print(f"❌ 出错了: {e}")
+        print(f"❌ 处理数据时出错: {e}")
         return None, None
 
 
 if __name__ == '__main__':
     print("🚀 启动彩票开奖查询程序...\n")
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         'Connection': 'keep-alive'
     }
 
     week = datetime.date.today().strftime('%w')
-    is_ssq = week in ['0', '2', '4']  # 判断今天是否是双色球开奖日（0代表星期日）
+    is_ssq = week in ['0', '2', '4']
     url = 'http://kaijiang.500.com/ssq.shtml' if is_ssq else 'http://kaijiang.500.com/dlt.shtml'
 
     print(f"📅 今天是星期 {week}，正在抓取 {'双色球' if is_ssq else '大乐透'} 开奖信息...\n")
