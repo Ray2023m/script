@@ -10,7 +10,7 @@ new Env('69机场签到');
 import requests
 import os
 import warnings
-import notify  # 确保导入了 notify 模块
+import notify  
 from urllib3.exceptions import InsecureRequestWarning
 
 # 忽略所有 InsecureRequestWarning 警告
