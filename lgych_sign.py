@@ -12,7 +12,7 @@ import urllib3
 import ssl
 from datetime import datetime
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 import notify  # 导入通知模块
 
