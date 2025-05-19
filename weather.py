@@ -231,7 +231,7 @@ def main():
         "数据来源：和风天气 | https://www.qweather.com/"
     )
 
-    notify.send(title=f"{city_name}未来{forecast_days_text}天气预报及生活指数/台风信息", content=full_message)
+    notify.send(title=f"深圳市{city_name}区未来{forecast_days_text}天气预报", content=full_message)
     print(full_message)
 
 
