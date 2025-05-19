@@ -1,13 +1,18 @@
 """
-环境变量配置说明（适用于青龙面板）：
+cron: 40 6 * * *
+new Env('和风天气推送');
+# 说明：获取深圳光明区天气信息并推送
+# 2025年5月19日更新
+# @author: Alchemy
 
+环境变量配置说明（适用于青龙面板）：
 - QWEATHER_PRIVATE_KEY ：和风天气API私钥，换行用\\n转义
 - QWEATHER_PROJECT_ID  ：项目ID，示例 "3A8X"
 - QWEATHER_KEY_ID      ：Key ID，示例 "TW"
 - QWEATHER_LOCATION    ：地理位置编码，示例 "101280610"（深圳光明区）
 
 示例：
-QWEATHER_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwRpe+Nr6LTkySuLtDhG/s1\n-----END PRIVATE KEY-----  #参照格式
+QWEATHER_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwRpe+Nr6LTkySuLtDhG/s1\n-----END PRIVATE KEY-----  #注意参照格式
 QWEATHER_PROJECT_ID=3A8X
 QWEATHER_KEY_ID=TW
 QWEATHER_LOCATION=101280610
