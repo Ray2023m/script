@@ -91,10 +91,10 @@ class QWeatherForecastClient:
 
             day_line = (
                 f"📅 {day.get('fxDate', '')}  白天: {day.get('textDay', '')}  夜晚: {day.get('textNight', '')}\n"
-                f"🌡️ 温度: {day.get('tempMin', '')}°C ~ {day.get('tempMax', '')}°C  "
-                f"💨 风: {day.get('windDirDay', '')} {day.get('windScaleDay', '')}级  "
+                f"🌡️ 温度: {day.get('tempMin', '')}°C ~ {day.get('tempMax', '')}°C\n"
+                f"💨 风: {day.get('windDirDay', '')} {day.get('windScaleDay', '')}级\n"
                 f"💧 降水: {day.get('precip', '')}mm  湿度: {day.get('humidity', '')}%\n"
-                f"🌅 日出: {day.get('sunrise', '')}  日落: {day.get('sunset', '')}  "
+                f"🌅 日出: {day.get('sunrise', '')}  日落: {day.get('sunset', '')}\n"
                 f"🌙 月相: {moon_emoji}  ☀️ 紫外线指数: {day.get('uvIndex', '')}\n"
                 "-------------------------------------"
             )
