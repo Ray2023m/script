@@ -1,17 +1,16 @@
 """
-cron: 40 6 * * *
-new Env('和风天气推送');
-# 说明：获取深圳光明区天气信息并推送
-# 2025年5月19日更新
-# @author: Alchemy
-
 环境变量配置说明（适用于青龙面板或其他环境变量管理工具）：
-- QWEATHER_PRIVATE_KEY ：和风天气API的私钥，注意换行用\\n转义，如：
-  -----BEGIN PRIVATE KEY-----\\nMC4CAQAwBQYDK2VwRpe+Nr6LTkySuLtDhG/s1\\n-----END PRIVATE KEY-----
-- QWEATHER_PROJECT_ID ：项目ID，如 "3A8X"
-- QWEATHER_KEY_ID ：密钥ID，如 "TW"
-- QWEATHER_LOCATION ：地理位置编码，默认深圳光明区 "101280610"
 
+- QWEATHER_PRIVATE_KEY ：和风天气API私钥，换行用\\n转义
+- QWEATHER_PROJECT_ID  ：项目ID，示例 "3A8X"
+- QWEATHER_KEY_ID      ：Key ID，示例 "TW"
+- QWEATHER_LOCATION    ：地理位置编码，示例 "101280610"（深圳光明区）
+
+示例（青龙环境变量）：
+QWEATHER_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\\nMC4CAQAwBQYDK2VwRpe+Nr6LTkySuLtDhG/s1\\n-----END PRIVATE KEY-----
+QWEATHER_PROJECT_ID=3A8X
+QWEATHER_KEY_ID=TW
+QWEATHER_LOCATION=101280610
 """
 
 import os
@@ -92,12 +91,12 @@ class QWeatherClient:
 
 def main():
     private_key = os.getenv("QWEATHER_PRIVATE_KEY", "").replace("\\n", "\n")
-    project_id = os.getenv("QWEATHER_PROJECT_ID", "")
-    key_id = os.getenv("QWEATHER_KEY_ID", "")
-    location = os.getenv("QWEATHER_LOCATION", "101280610")  # 默认光明区
+    project_id = os.getenv("QWEATHER_PROJECT_ID", "3A8X")
+    key_id = os.getenv("QWEATHER_KEY_ID", "TW")
+    location = os.getenv("QWEATHER_LOCATION", "101280610")
 
-    if not all([private_key, project_id, key_id]):
-        print("[ERROR] 请设置完整的环境变量：QWEATHER_PRIVATE_KEY、QWEATHER_PROJECT_ID、QWEATHER_KEY_ID")
+    if not private_key:
+        print("[ERROR] 请设置环境变量：QWEATHER_PRIVATE_KEY")
         return
 
     client = QWeatherClient(private_key, project_id, key_id, location)
