@@ -168,12 +168,12 @@ class QWeatherForecastClient:
         lines = ["🌪️ 当前台风信息："]
         for ty in typhoons:
             lines.append(
-                f"名称：{ty.get('name', '未知')} ({ty.get('enName', '')})\n"
-                f"状态：{ty.get('status', '未知状态')}\n"
-                f"位置：{ty.get('lat', '未知纬度')}°N, {ty.get('lon', '未知经度')}°E\n"
-                f"最大风速：{ty.get('maxWind', '未知风速')} km/h  气压：{ty.get('pressure', '未知气压')} hPa\n"
-                f"移动方向：{ty.get('moveDirection', '未知方向')}  速度：{ty.get('moveSpeed', '未知速度')} km/h\n"
-                f"7级风圈半径：{ty.get('radius7', '未知')} km\n"
+                f"🌪️名称：{ty.get('name', '未知')} ({ty.get('enName', '')})\n"
+                f"▶状态：{ty.get('status', '未知状态')}\n"
+                f"▶位置：{ty.get('lat', '未知纬度')}°N, {ty.get('lon', '未知经度')}°E\n"
+                f"▶最大风速：{ty.get('maxWind', '未知风速')} km/h  气压：{ty.get('pressure', '未知气压')} hPa\n"
+                f"▶移动方向：{ty.get('moveDirection', '未知方向')}  速度：{ty.get('moveSpeed', '未知速度')} km/h\n"
+                f"▶7级风圈半径：{ty.get('radius7', '未知')} km\n"
                 "-------------------------------------"
             )
         return "\n".join(lines)
