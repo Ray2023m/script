@@ -1,12 +1,12 @@
 """
-环境变量配置说明（适用于青龙面板或其他环境变量管理工具）：
+环境变量配置说明（适用于青龙面板）：
 
 - QWEATHER_PRIVATE_KEY ：和风天气API私钥，换行用\\n转义
 - QWEATHER_PROJECT_ID  ：项目ID，示例 "3A8X"
 - QWEATHER_KEY_ID      ：Key ID，示例 "TW"
 - QWEATHER_LOCATION    ：地理位置编码，示例 "101280610"（深圳光明区）
 
-示例（青龙环境变量）：
+示例：
 QWEATHER_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\\nMC4CAQAwBQYDK2VwRpe+Nr6LTkySuLtDhG/s1\\n-----END PRIVATE KEY-----
 QWEATHER_PROJECT_ID=3A8X
 QWEATHER_KEY_ID=TW
@@ -104,7 +104,7 @@ def main():
     if data:
         message = client.parse_weather(data)
         print(message)
-        notify.send(message)  # 调用你的通知模块推送
+        notify.send(title="深圳光明区天气", content=message)  # 传入标题和内容
     else:
         print("获取天气数据失败。")
 
