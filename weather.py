@@ -267,7 +267,7 @@ class QWeatherClient:
         lines = [
             f"📅 日期: {daily.get('fxDate', '未知')}",
             f"🌅 日出: {daily.get('sunrise', '未知')}  🌇 日落: {daily.get('sunset', '未知')}",
-            f"🌙 月升: {daily.get('moonrise', '未知')}  月落: {daily.get('moonset', '未知')}  🌔 月相: {moon_phase}",
+            f"🌔 月相: {moon_phase}  月升: {daily.get('moonrise', '未知')}  月落: {daily.get('moonset', '未知')}  ",
             f"🌞 白天: {text_day}  💨 {daily.get('windDirDay', '未知')} {daily.get('windScaleDay', '未知')}级",
             f"🌜 夜间: {text_night}  💨 {daily.get('windDirNight', '未知')} {daily.get('windScaleNight', '未知')}级",
             f"🌡️ 温度区间：⬆️ {daily.get('tempMax', '未知')}°C / ⬇️ {daily.get('tempMin', '未知')}°C",
