@@ -263,19 +263,14 @@ class QWeatherClient:
         text_day = WEATHER_CODE_MAP.get(daily.get("iconDay", ""), daily.get("textDay", "未知"))
         text_night = WEATHER_CODE_MAP.get(daily.get("iconNight", ""), daily.get("textNight", "未知"))
 
-        # 处理温度
-        temp_min = daily.get("tempMin", "未知")
-        temp_max = daily.get("tempMax", "未知")
-        temp_range = f"{temp_min} ~ {temp_max} °C" if temp_min != "未知" and temp_max != "未知" else "未知"
-
         # 构建输出信息
         lines = [
             f"📅 日期: {daily.get('fxDate', '未知')}",
             f"🌅 日出: {daily.get('sunrise', '未知')}  🌇 日落: {daily.get('sunset', '未知')}",
             f"🌙 月升: {daily.get('moonrise', '未知')}  月落: {daily.get('moonset', '未知')}  🌔 月相: {moon_phase}",
-            f"🌡 温度范围: {temp_range}",
             f"🌞 白天: {text_day}  💨 {daily.get('windDirDay', '未知')} {daily.get('windScaleDay', '未知')}级",
             f"🌜 夜间: {text_night}  💨 {daily.get('windDirNight', '未知')} {daily.get('windScaleNight', '未知')}级",
+            f"🌡️ 温度区间：⬆️ {daily.get('tempMax', '未知')}°C / ⬇️ {daily.get('tempMin', '未知')}°C",
             f"💧 湿度: {daily.get('humidity', '未知')}%  ☁️ 云量: {daily.get('cloud', '未知')}%",
             f"🌂 降水量: {daily.get('precip', '未知')}mm  🌡️ 气压: {daily.get('pressure', '未知')}hPa",
             f"🔆 紫外线指数: {daily.get('uvIndex', '未知')}  👁️ 能见度: {daily.get('vis', '未知')}km",
