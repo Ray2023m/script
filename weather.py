@@ -17,7 +17,6 @@ QWEATHER_PROJECT_ID=3A8X
 QWEATHER_KEY_ID=TW
 QWEATHER_LOCATION=101280610
 """
-# -*- coding: utf-8 -*-
 
 import time
 import jwt
