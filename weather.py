@@ -1,5 +1,5 @@
 """
-cron: 40 6 * * *
+cron: 30 7 * * *
 new Env('和风天气推送');
 # 说明：获取深圳光明区天气信息并推送
 # 2025年5月19日更新
@@ -17,7 +17,6 @@ QWEATHER_PROJECT_ID=3A8X
 QWEATHER_KEY_ID=TW
 QWEATHER_LOCATION=101280610
 """
-
 import time
 import jwt
 import requests
@@ -26,6 +25,10 @@ import sys
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
+try:
+    import notify
+except ImportError:
+    print("[WARN] 未找到notify模块，将使用标准输出")
 
 # ====== 配置类 ======
 @dataclass
@@ -58,9 +61,91 @@ MOON_PHASE_MAP = {
 API_BASE_URL = "https://ne2mtdcmff.re.qweatherapi.com"
 API_ENDPOINTS = {
     "daily": "/v7/weather/3d",
+    "now": "/v7/weather/now",
     "city": "/geo/v2/city/lookup",
     "storm_list": "/v7/tropical/storm-list",
     "storm_forecast": "/v7/tropical/storm-forecast",
+    "air_quality": "/airquality/v1/daily/{latitude}/{longitude}",
+    "warning": "/v7/warning/now",  # 新增灾害预警API
+}
+
+# 预警类型映射
+WARNING_TYPE_MAP = {
+    # 1000系列 - 气象预警
+    "1001": "🌀 台风预警","1002": "🌪️ 龙卷风预警","1003": "🌧️ 暴雨预警","1004": "❄️ 暴雪预警","1005": "❄️ 寒潮预警",
+    "1006": "💨 大风预警","1007": "🌪️ 沙尘暴预警","1008": "❄️ 低温冻害预警","1009": "🔥 高温预警","1010": "🔥 热浪预警",
+    "1011": "🌡️ 干热风预警","1012": "🌪️ 下击暴流预警","1013": "🏔️ 雪崩预警","1014": "⚡️ 雷电预警","1015": "🧊 冰雹预警",
+    "1016": "❄️ 霜冻预警","1017": "🌫️ 大雾预警","1018": "💨 低空风切变预警","1019": "🌫️ 霾预警","1020": "⛈️ 雷雨大风预警",
+    "1021": "❄️ 道路结冰预警","1022": "🌵 干旱预警","1023": "🌊 海上大风预警","1024": "🥵 高温中暑预警","1025": "🔥 森林火险预警",
+    "1026": "🔥 草原火险预警","1027": "❄️ 冰冻预警","1028": "🌌 空间天气预警","1029": "🌫️ 重污染预警","1030": "❄️ 低温雨雪冰冻预警",
+    "1031": "⛈️ 强对流预警","1032": "🌫️ 臭氧预警","1033": "❄️ 大雪预警","1034": "❄️ 寒冷预警","1035": "🌧️ 连阴雨预警",
+    "1036": "💧 渍涝风险预警","1037": "🏔️ 地质灾害气象风险预警","1038": "🌧️ 强降雨预警","1039": "❄️ 强降温预警","1040": "❄️ 雪灾预警",
+    "1041": "🔥 森林（草原）火险预警","1042": "🏥 医疗气象预警","1043": "⚡️ 雷暴预警","1044": "🏫 停课信号","1045": "🏢 停工信号",
+    "1046": "🌊 海上风险预警","1047": "🌪️ 春季沙尘天气预警","1048": "❄️ 降温预警","1049": "🌀 台风暴雨预警","1050": "❄️ 严寒预警",
+    "1051": "🌪️ 沙尘预警","1052": "🌊 海上雷雨大风预警","1053": "🌊 海上大雾预警","1054": "🌊 海上雷电预警","1055": "🌊 海上台风预警",
+    "1056": "❄️ 低温预警","1057": "❄️ 道路冰雪预警","1058": "⛈️ 雷暴大风预警","1059": "❄️ 持续低温预警","1060": "🌫️ 能见度不良预警",
+    "1061": "🌫️ 浓浮沉预警","1062": "🌊 海区大风预警","1063": "🌧️ 短历时强降水预警","1064": "🌧️ 短时强降雨预警","1065": "🌊 海区大雾预警",
+    "1066": "🥵 中暑气象条件预警","1067": "🌫️ 重污染天气预警","1068": "⚠️ 一氧化碳中毒气象条件预警","1069": "🤧 感冒等呼吸道疾病气象条件预警",
+    "1071": "🤢 腹泻等肠道疾病气象条件预警","1072": "❤️ 心脑血管疾病气象条件预警","1073": "💧 洪涝灾害气象风险预警",
+    "1074": "🌫️ 重污染气象条件预警","1075": "💧 城市内涝气象风险预警","1076": "💧 洪水灾害气象风险预警","1077": "🔥 森林火险气象风险预警",
+    "1078": "🌵 气象干旱预警","1079": "🌾 农业气象风险预警","1080": "💨 强季风预警","1081": "⚡️ 电线积冰预警",
+    "1082": "🏥 脑卒中气象风险预警","1084": "🔥 森林（草原）火灾气象风险预警","1085": "⛈️ 雷雨强风预警","1086": "❄️ 低温凝冻预警",
+    "1087": "❄️ 低温冷害预警","1088": "🌾 全国农业气象灾害风险预警","1089": "🌾 冬小麦干热风灾害风险预警",
+
+    # 1200系列 - 水文预警
+    "1201": "💧 洪水预警","1202": "💧 内涝预警","1203": "💧 水库重大险情预警","1204": "💧 堤防重大险情预警",
+    "1205": "💧 凌汛灾害预警","1206": "💧 渍涝预警","1207": "💧 洪涝预警","1208": "💧 枯水预警","1209": "💧 中小河流洪水和山洪气象风险预警",
+    "1210": "💧 农村人畜饮水困难预警","1211": "💧 中小河流洪水气象风险预警","1212": "💧 防汛抗旱风险提示","1213": "💧 城市内涝风险预警",
+    "1214": "💧 山洪灾害事件预警","1215": "🌵 农业干旱预警","1216": "💧 城镇缺水预警","1217": "🌵 生态干旱预警",
+    "1218": "⚠️ 灾害风险预警","1219": "💧 山洪灾害气象风险预警","1221": "💧 水利旱情预警",
+
+    # 1240系列 - 地质灾害预警
+    "1241": "🏔️ 滑坡事件预警","1242": "🏔️ 泥石流事件预警","1243": "🏔️ 山体崩塌事件预警","1244": "🏔️ 地面塌陷事件预警",
+    "1245": "🏔️ 地裂缝事件预警","1246": "🏔️ 地面沉降事件预警","1247": "🌋 火山喷发事件预警","1248": "🏔️ 地质灾害气象风险预警",
+    "1249": "🏔️ 地质灾害气象预警","1250": "🏔️ 地质灾害预警","1251": "🏔️ 地质灾害风险预警",
+
+    # 1270系列 - 环境预警
+    "1271": "🌫️ 空气污染事件预警","1272": "🌫️ 空气重污染预警","1273": "🌫️ 大气污染预警","1274": "🌫️ 重污染天气预警",
+
+    # 1600系列 - 香港预警
+    "1601": "🔥 炎热预警", "1602": "💨 强烈季风信号","1603": "🏔️ 山泥倾泻预警","1604": "🌀 热带气旋预警",
+    "1605": "🔥 火灾危险预警","1606": "💧 新界北部水浸特别报告","1607": "❄️ 寒冷天气预警","1608": "⚡️ 雷暴预警",
+    "1609": "🌧️ 暴雨预警","1610": "❄️ 霜冻预警",
+
+    # 1700系列 - 台湾预警
+    "1701": "❄️ 低温特报","1702": "💨 陆上强风预警","1703": "🌧️ 降雨特报",
+
+    # 1800系列 - 澳门预警
+    "1801": "💨 强烈季风信号（黑球）","1802": "🌊 风暴潮预警","1803": "🌀 热带气旋预警","1804": "🌧️ 暴雨预警","1805": "⚡️ 雷暴预警",
+
+    # 2000系列 - 国际预警
+    "2001": "💨 大风预警","2002": "❄️ 强降雪和结冰预警","2003": "🌫️ 大雾预警","2004": "🌊 海岸风险预警",
+    "2005": "🔥 森林火险预警","2006": "🌧️ 雨预警","2007": "💧 大雨洪水预警","2029": "⚡️ 雷暴预警",
+    "2030": "🔥 高温预警","2031": "❄️ 低温预警","2032": "🏔️ 雪崩预警","2033": "💧 洪水预警",
+    "2050": "🌧️ 大雨预警","2051": "💨 大风预警","2052": "❄️ 大雪预警","2053": "💨 Zonda wind预警",
+    "2054": "💨 暴风预警","2070": "🌪️ 扬尘风预警","2071": "💨 强地面风预警","2072": "🔥 炎热预警",
+    "2073": "🔥 夜间炎热预警","2074": "❄️ 寒冷预警","2075": "⚡️ 雷暴和闪电预警","2076": "🧊 冰雹风暴预警",
+    "2077": "🌊 海况风险预警","2078": "🐟 渔业风险预警","2079": "❄️ 大雪预警","2080": "🌪️ 沙尘暴预警",
+    "2081": "🔥 热浪预警","2082": "❄️ 寒潮预警","2083": "🌫️ 大雾预警","2084": "🌧️ 强降雨预警","2085": "❄️ 地面霜预警",
+
+    # 2100系列 - 其他国际预警
+    "2100": "🌫️ 大雾预警","2101": "🌧️ 雷雨预警","2102": "⚡️ 雷暴预警","2103": "🌧️ 小雨预警","2104": "🌧️ 大雨预警",
+    "2105": "💨 风预警","2106": "⚡️ 雷暴和沙尘预警","2107": "🌪️ 沙尘预警","2108": "🌊 高海浪预警","2109": "❄️ 霜预警",
+    "2111": "🌫️ 能见度降低预警","2120": "🌵 低湿度预警","2121": "🌧️ 累计降水风险预警","2122": "❄️ 寒潮预警",
+    "2123": "🌪️ 龙卷风预警","2124": "⚡️ 雷暴预警","2125": "🧊 冰雹预警","2126": "🌧️ 强降雨预警","2127": "💨 大风预警",
+    "2128": "🔥 热浪预警","2129": "❄️ 寒冷预警","2130": "❄️ 霜冻预警","2131": "🌵 干旱预警","2132": "🔥 森林火险预警",
+    "2133": "❄️ 大雪预警","2134": "❄️ 强降温预警","2135": "🌧️ 暴雨预警",
+
+    # 9999 - 其他预警
+    "9999": "⚠️ 其他预警"
+}
+
+# 预警等级映射
+WARNING_LEVEL_MAP = {
+    "Minor": "🔵 蓝色预警",
+    "Moderate": "🟡 黄色预警",
+    "Severe": "🟠 橙色预警",
+    "Extreme": "🔴 红色预警",
 }
 
 WEATHER_CODE_MAP = {
@@ -102,50 +187,6 @@ TYPHOON_MAP = {
     "TY": "🌪️ 台风", "ST": "💨 强热带风暴", "SD": "🌪️ 热带风暴",
 }
 
-# ====== 通知类 ======
-class NotificationManager:
-    """通知管理器"""
-    
-    @staticmethod
-    def center_title_wechat(text: str, width: int = 10) -> str:
-        text_len = len(text)
-        total_len = width * 2  # 估算总宽度（全角*2）
-        padding = (total_len - text_len) // 2
-        return "　" * padding + text
-    @staticmethod
-    def send(title: str, content: str) -> None:
-        """
-        发送通知
-        
-        Args:
-            title: 通知标题
-            content: 通知内容
-        """
-        try:
-            # 使用全角空格使标题居中
-            centered_title = NotificationManager.center_title_wechat(title, 8)
-            
-            # 打印发送内容
-            print("\n" + "="*50)
-            print("发送内容预览:")
-            print("-"*50)
-            print(f"标题: {centered_title}")
-            print("-"*50)
-            print("正文:")
-            print(content)
-            print("="*50 + "\n")
-            
-            # 尝试使用青龙面板的通知
-            from notify import send as ql_send
-            ql_send(centered_title, content)
-        except ImportError:
-            # 降级为控制台输出
-            print(f"\n{centered_title}")
-            print("=" * 30)
-            print(content)
-        except Exception as e:
-            print(f"[ERROR] 发送通知失败: {e}")
-
 class QWeatherClient:
     """和风天气API客户端"""
     
@@ -161,6 +202,7 @@ class QWeatherClient:
             endpoint: f"{API_BASE_URL}{path}"
             for endpoint, path in API_ENDPOINTS.items()
         }
+        self._city_info_cache = None  # 添加城市信息缓存
         print("[INFO] 和风天气客户端初始化完成")
 
     def _generate_jwt(self) -> str:
@@ -207,18 +249,31 @@ class QWeatherClient:
                 print(f"[INFO] 正在请求: {url}")
                 response = requests.get(url, headers=headers, params=params, timeout=self.config.timeout)
                 response.raise_for_status()
-                data = response.json()
-                print(f"[INFO] 请求成功: {url}")
+                
+                try:
+                    data = response.json()
+                except ValueError as e:
+                    print(f"[ERROR] JSON解析失败: {e}")
+                    return None
+                
                 return data
+                    
             except requests.exceptions.RequestException as e:
                 print(f"[WARN] 请求失败 ({retry + 1}/{self.config.max_retries}): {e}")
                 if retry == self.config.max_retries - 1:
                     raise RuntimeError(f"请求失败 ({retry + 1}/{self.config.max_retries}): {e}")
                 time.sleep(1)  # 重试前等待1秒
+            except Exception as e:
+                print(f"[ERROR] 请求异常: {e}")
+                return None
         return None
 
-    def fetch_city_name(self) -> Optional[str]:
-        """获取城市名称"""
+    def fetch_city_name(self) -> Optional[Dict[str, Any]]:
+        """获取城市名称和坐标"""
+        # 如果缓存中有城市信息，直接返回
+        if self._city_info_cache is not None:
+            return self._city_info_cache
+
         print("[INFO] 正在获取城市信息...")
         params = {"location": self.config.location, "lang": "zh"}
         data = self._request(self.urls["city"], params)
@@ -226,9 +281,15 @@ class QWeatherClient:
             print("[WARN] 未获取到城市信息")
             return None
         locations = data.get("location", [])
-        city_name = locations[0].get("name") if locations else None
-        print(f"[INFO] 获取到城市信息: {city_name}")
-        return city_name
+        if not locations:
+            print("[WARN] 未找到位置信息")
+            return None
+        location = locations[0]
+        print(f"[INFO] 获取到城市信息: {location.get('name')}")
+        
+        # 缓存城市信息
+        self._city_info_cache = location
+        return location
 
     def fetch_daily(self) -> Optional[Dict[str, Any]]:
         """获取每日天气数据"""
@@ -241,6 +302,55 @@ class QWeatherClient:
             print("[WARN] 未获取到每日天气数据")
         return data
 
+    def fetch_air_quality(self, latitude: str, longitude: str) -> Optional[Dict[str, Any]]:
+        """获取空气质量数据"""
+        print("[INFO] 正在获取空气质量数据...")
+        url = self.urls["air_quality"].format(latitude=latitude, longitude=longitude)
+        try:
+            data = self._request(url)
+            if data:
+                print("[INFO] 成功获取空气质量数据")
+                return data
+            else:
+                print("[WARN] 未获取到空气质量数据")
+                return None
+        except Exception as e:
+            print(f"[ERROR] 获取空气质量数据失败: {e}")
+            return None
+
+    def parse_air_quality(self, data: Optional[Dict[str, Any]]) -> str:
+        """
+        解析空气质量数据
+        
+        Args:
+            data: 空气质量数据
+            
+        Returns:
+            格式化的空气质量信息
+        """
+        if not data or "days" not in data or not data["days"]:
+            print("[WARN] 空气质量数据格式无效")
+            return "暂无空气质量数据"
+
+        today = data["days"][0]
+        
+        # 获取中国标准AQI指数
+        aqi = next((idx for idx in today["indexes"] if idx["code"] == "cn-mee"), None)
+        if not aqi:
+            print("[WARN] 未找到AQI指数数据")
+            return "暂无空气质量数据"
+
+        # 获取空气质量指数和等级
+        aqi_value = aqi.get("aqiDisplay", "未知")
+        level = aqi.get("level", "未知")
+        category = aqi.get("category", "未知")
+
+        # 获取健康建议
+        health = aqi.get("health", {})
+        effect = health.get("effect", "暂无影响说明")
+
+        return f"💨 AQI指数: {aqi_value} 等级: {level} 类别: {category}\n💡 健康影响: {effect}"
+
     def parse_daily(self, data: Optional[Dict[str, Any]]) -> str:
         """
         解析每日天气数据
@@ -252,6 +362,7 @@ class QWeatherClient:
             格式化的天气信息
         """
         if not data or "daily" not in data or not data["daily"]:
+            print("[WARN] 天气数据格式无效")
             return "无有效天气数据"
 
         daily = data["daily"][0]
@@ -263,18 +374,84 @@ class QWeatherClient:
         text_day = WEATHER_CODE_MAP.get(daily.get("iconDay", ""), daily.get("textDay", "未知"))
         text_night = WEATHER_CODE_MAP.get(daily.get("iconNight", ""), daily.get("textNight", "未知"))
 
+        # 处理温度
+        temp_min = daily.get("tempMin", "未知")
+        temp_max = daily.get("tempMax", "未知")
+        temp_range = f"最高温度 {temp_max}°C,最低温度 {temp_min}°C." if temp_min != "未知" and temp_max != "未知" else "未知"
+
+        # 获取紫外线建议和每日提示
+        uv_index = daily.get("uvIndex", "未知")
+        uv_level = classify_uv_index(uv_index)
+        uv_advice = get_uv_advice(uv_index)
+        daily_tip = get_daily_tip(temp_max, text_day)
+
+        # 获取空气质量信息
+        city_info = self.fetch_city_name()
+        air_quality_text = ""
+        if city_info:
+            latitude = city_info.get("lat", "")
+            longitude = city_info.get("lon", "")
+            if latitude and longitude:
+                air_quality_data = self.fetch_air_quality(latitude, longitude)
+                if air_quality_data:
+                    today = air_quality_data.get("days", [{}])[0]
+                    aqi = next((idx for idx in today.get("indexes", []) if idx.get("code") == "cn-mee"), None)
+                    if aqi:
+                        aqi_value = aqi.get("aqiDisplay", "未知")
+                        level = aqi.get("level", "未知")
+                        category = aqi.get("category", "未知")
+                        air_quality_text = f"💨 AQI指数: {aqi_value} 等级: {level} 类别: {category}"
+
+        # 获取预警信息
+        warning_text = ""
+        warning_data = self.fetch_warning()
+        if warning_data and warning_data.get("warning"):
+            warning_text = self.parse_warning(warning_data)
+
+        # 获取台风信息
+        storm_text = ""
+        storm_list = self.fetch_storm_list()
+        if storm_list and storm_list.get("storms"):
+            first_storm_id = storm_list["storms"][0].get("stormId")
+            if first_storm_id:
+                forecast = self.fetch_storm_forecast(first_storm_id)
+                if forecast:
+                    storm_text = format_storm_forecast(forecast)
+
         # 构建输出信息
         lines = [
-            f"📅 日期: {daily.get('fxDate', '未知')}",
-            f"🌅 日出: {daily.get('sunrise', '未知')}  🌇 日落: {daily.get('sunset', '未知')}",
-            f"🌔 月相: {moon_phase}  月升: {daily.get('moonrise', '未知')}  月落: {daily.get('moonset', '未知')}  ",
-            f"🌞 白天: {text_day}  💨 {daily.get('windDirDay', '未知')} {daily.get('windScaleDay', '未知')}级",
-            f"🌜 夜间: {text_night}  💨 {daily.get('windDirNight', '未知')} {daily.get('windScaleNight', '未知')}级",
-            f"🌡️ 温度区间：⬆️ {daily.get('tempMax', '未知')}°C / ⬇️ {daily.get('tempMin', '未知')}°C",
-            f"💧 湿度: {daily.get('humidity', '未知')}%  ☁️ 云量: {daily.get('cloud', '未知')}%",
-            f"🌂 降水量: {daily.get('precip', '未知')}mm  🌡️ 气压: {daily.get('pressure', '未知')}hPa",
-            f"🔆 紫外线指数: {daily.get('uvIndex', '未知')}  👁️ 能见度: {daily.get('vis', '未知')}km",
+            "──────── 今日概览 ────────",
+            f"☀️ 日出日落:({daily.get('sunrise', '未知')}-{daily.get('sunset', '未知')})",
+            f"🌙 月升月落:({daily.get('moonrise', '未知')}-{daily.get('moonset', '未知')}){moon_phase}"
         ]
+
+        # 添加空气质量信息（如果存在）
+        if air_quality_text:
+            lines.append(air_quality_text)
+
+        # 继续添加其他信息
+        lines.extend([
+            f"🌡️ 温差范围:{temp_range}",
+            "──────── 天气趋势 ────────",
+            f"☀️ 白天:{text_day} {daily.get('windDirDay', '未知')}{daily.get('windScaleDay', '未知')}级({daily.get('windSpeedDay', '未知')}km/h)",
+            f"🌙 夜间:{text_night} {daily.get('windDirNight', '未知')}{daily.get('windScaleNight', '未知')}级({daily.get('windSpeedNight', '未知')}km/h)",
+            "──────── 环境指标 ────────",
+            f"🔆 紫外线:{uv_index}级({uv_level})",
+            f"💧 降水概率:70% 🌧️ 累计:{daily.get('precip', '未知')}mm",
+            "──────── 生活指南 ────────",
+            f"🧴 防晒建议:{uv_advice.split('：')[1] if '：' in uv_advice else uv_advice}",
+            f"🌂 出行提示:{daily_tip}"
+        ])
+
+        # 添加预警信息（仅当有预警时）
+        if warning_text:
+            lines.extend(warning_text.split("\n"))
+
+        # 添加台风信息（仅当有台风时）
+        if storm_text:
+            lines.append("──────── 台风信息 ────────")
+            lines.extend(storm_text.split("\n"))
+
         return "\n".join(lines)
 
     def fetch_storm_list(self, basin: str = "NP", year: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -310,6 +487,162 @@ class QWeatherClient:
             print("[WARN] 未获取到台风预报信息")
         return data
 
+    def fetch_now(self) -> Optional[Dict[str, Any]]:
+        """获取实时天气数据"""
+        print("[INFO] 正在获取实时天气数据...")
+        params = {"location": self.config.location, "lang": "zh", "unit": "m"}
+        data = self._request(self.urls["now"], params)
+        if data:
+            print("[INFO] 成功获取实时天气数据")
+        else:
+            print("[WARN] 未获取到实时天气数据")
+        return data
+
+    def parse_now(self, data: Optional[Dict[str, Any]]) -> str:
+        """
+        解析实时天气数据
+        
+        Args:
+            data: 实时天气数据
+            
+        Returns:
+            格式化的实时天气信息
+        """
+        if not data or "now" not in data:
+            print("[WARN] 实时天气数据格式无效")
+            return "无有效实时天气数据"
+
+        now = data["now"]
+
+        # 处理天气现象
+        text = WEATHER_CODE_MAP.get(now.get("icon", ""), now.get("text", "未知"))
+        
+        # 处理体感温度
+        feels_like = now.get("feelsLike", "")
+        temp_display = f"{now.get('temp', '未知')}°C"
+        if feels_like:
+            temp_display += f"(体感{feels_like}°C)"
+        
+        # 格式化时间
+        def format_time(time_str: str) -> str:
+            try:
+                if not time_str:
+                    return "未知"
+                # 处理带时区的时间格式
+                if "+" in time_str:
+                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%M%z")
+                else:
+                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%MZ")
+                    # 转换为北京时间（UTC+8）
+                    dt = dt.replace(hour=(dt.hour + 8) % 24)
+                    if dt.hour < 8:  # 如果加8小时后小于8点，说明跨天了
+                        dt = dt.replace(day=dt.day + 1)
+                return dt.strftime("%H:%M")
+            except ValueError:
+                return "未知"
+
+        # 获取城市信息
+        city_info = self.fetch_city_name()
+        city_name = city_info.get("name", "未知位置") if city_info else "未知位置"
+
+        # 构建输出信息
+        lines = [
+            f"📍 深圳市·{city_name}区",
+            f"🌦️ 实时天气 {text} [{format_time(now.get('obsTime', ''))}更新]",
+            f"🌡️ {temp_display} 💧 湿度{now.get('humidity', '未知')}%",
+            f"🌬️ {now.get('windDir', '未知')}{now.get('windScale', '未知')}级({now.get('windSpeed', '未知')}km/h) ☁️ 云量{now.get('cloud', '未知')}%",
+            f"🏙️ 能见度{now.get('vis', '未知')}km 🌀 气压{now.get('pressure', '未知')}hPa"
+        ]
+        return "\n".join(lines)
+
+    def fetch_warning(self) -> Optional[Dict[str, Any]]:
+        """获取灾害预警数据"""
+        print("[INFO] 正在获取灾害预警数据...")
+        params = {"location": self.config.location, "lang": "zh"}
+        data = self._request(self.urls["warning"], params)
+        if data:
+            print("[INFO] 成功获取灾害预警数据")
+            return data
+        else:
+            print("[WARN] 未获取到灾害预警数据")
+            return None
+
+    def parse_warning(self, data: Optional[Dict[str, Any]]) -> str:
+        """
+        解析灾害预警数据
+        
+        Args:
+            data: 灾害预警数据
+            
+        Returns:
+            格式化的灾害预警信息
+        """
+        if not data or "warning" not in data or not data["warning"]:
+            return ""
+
+        warnings = data["warning"]
+        lines = []
+
+        for warning in warnings:
+            # 获取预警类型和等级
+            warning_type = WARNING_TYPE_MAP.get(warning.get("type", ""), f"未知预警类型({warning.get('typeName', '')})")
+            warning_level = WARNING_LEVEL_MAP.get(warning.get("severity", ""), f"未知预警等级({warning.get('severity', '')})")
+            
+            # 格式化时间
+            def format_warning_time(time_str: str) -> str:
+                try:
+                    if not time_str:
+                        return "未知"
+                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%M%z")
+                    return dt.strftime("%m/%d %H:%M")
+                except ValueError:
+                    return "未知"
+
+            # 处理预警内容，去除括号内容
+            warning_text = warning.get('text', '暂无详细说明')
+            if '【' in warning_text and '】' in warning_text:
+                warning_text = warning_text.split('】', 1)[1].strip()
+
+            # 提取区域信息
+            areas = []
+            if "南山区" in warning_text:
+                areas.append("南山")
+            if "福田区" in warning_text:
+                areas.append("福田")
+            if "宝安区" in warning_text:
+                areas.append("宝安")
+            if "光明区" in warning_text:
+                areas.append("光明")
+            if "龙华区" in warning_text:
+                areas.append("龙华")
+            area_text = "/".join(areas) if areas else "未知区域"
+
+            # 提取影响信息
+            impact = []
+            if "降水" in warning_text:
+                impact.append("降水")
+            if "阵风" in warning_text:
+                impact.append("阵风")
+            if "雷电" in warning_text:
+                impact.append("雷电")
+            impact_text = "+".join(impact) if impact else "未知影响"
+
+            # 构建预警信息
+            warning_info = [
+                "──────── 灾害预警 ────────",
+                f"🚨 等级: {warning_level}",
+                f"🏷️ 类型: {warning_type}",
+                f"📢 来源: {warning.get('sender', '未知单位')}",
+                f"🕒 生效: {format_warning_time(warning.get('startTime', ''))}-{format_warning_time(warning.get('endTime', ''))}",
+                f"🏙️ 区域: {area_text}",
+                f"💥 影响: {impact_text}",
+                
+                "────────────────────────"
+            ]
+            lines.extend(warning_info)
+
+        return "\n".join(lines)
+
 
 def format_storm_forecast(data: Optional[Dict[str, Any]]) -> str:
     """格式化台风预报"""
@@ -339,6 +672,82 @@ def format_storm_forecast(data: Optional[Dict[str, Any]]) -> str:
         )
     return "\n".join(lines)
 
+def classify_uv_index(uv_index: str) -> str:
+    """
+    对紫外线指数进行分类
+    
+    Args:
+        uv_index: 紫外线指数
+        
+    Returns:
+        紫外线强度等级
+    """
+    try:
+        uv = int(uv_index)
+    except ValueError:
+        return "未知"
+
+    if uv <= 2:
+        return "弱"
+    elif 3 <= uv <= 5:
+        return "中等"
+    elif 6 <= uv <= 7:
+        return "较强"
+    elif 8 <= uv <= 10:
+        return "强"
+    else:
+        return "极强"
+
+def get_uv_advice(uv_index: str) -> str:
+    """
+    根据紫外线指数给出建议
+    
+    Args:
+        uv_index: 紫外线指数
+        
+    Returns:
+        紫外线防护建议
+    """
+    try:
+        uv = int(uv_index)
+    except ValueError:
+        return "⚠️ 紫外线强度未知，建议注意防晒措施。"
+
+    if uv <= 2:
+        return "🟢 紫外线弱，无需特殊防护。"
+    elif 3 <= uv <= 5:
+        return "🟡 紫外线中等，建议适当涂抹防晒霜。"
+    elif 6 <= uv <= 7:
+        return "🟠 紫外线较强，请涂抹SPF30+防晒霜。"
+    elif 8 <= uv <= 10:
+        return "🔴 紫外线强，避免长时间户外暴晒。"
+    else:
+        return "🟣 紫外线极强，避免外出，做好全面防护。"
+
+def get_daily_tip(temp_max: str, weather_day: str) -> str:
+    """
+    根据温度和天气给出每日提示
+    
+    Args:
+        temp_max: 最高温度
+        weather_day: 白天天气状况
+        
+    Returns:
+        每日生活提示
+    """
+    try:
+        temp = int(temp_max)
+    except ValueError:
+        temp = 25  # 默认温度
+
+    if "雨" in weather_day or "雪" in weather_day:
+        return "🌂 今日有降水，请带伞出门。"
+    elif temp >= 32:
+        return "🔥 高温天气注意防暑，多喝水。"
+    elif temp <= 10:
+        return "❄️ 天气寒冷，请注意保暖。"
+    else:
+        return "😊 适宜出行，祝您心情愉快！"
 
 def main():
     """主函数"""
@@ -349,36 +758,64 @@ def main():
         config = WeatherConfig.from_env()
         print("[INFO] 配置加载完成")
         
+        # 打印配置信息（不包含私钥）
+        print("\n[INFO] 当前配置:")
+        print("-" * 50)
+        print(f"Project ID: {config.project_id}")
+        print(f"Key ID: {config.key_id}")
+        print(f"Location: {config.location}")
+        print(f"Timeout: {config.timeout}s")
+        print(f"Max Retries: {config.max_retries}")
+        print("-" * 50)
+        
         client = QWeatherClient(config)
 
-        # 获取城市名称
-        city_name = client.fetch_city_name() or "未知位置"
-        header = f"===== 深圳市{city_name}区 今日天气预报 ====="
+        # 获取城市信息
+        city_info = client.fetch_city_name()
+        if not city_info:
+            raise RuntimeError("无法获取城市信息")
+            
+        city_name = city_info.get("name", "未知位置")
+        header = f"===== 今天又是新的一天 ====="
+
+        # 收集所有天气信息
+        weather_info = []
+        weather_info.append(header)
+
+        # 获取实时天气数据
+        now_data = client.fetch_now()
+        if now_data:
+            now_text = client.parse_now(now_data)
+            weather_info.append(now_text)
 
         # 获取天气数据
         daily_data = client.fetch_daily()
+        if not daily_data:
+            raise RuntimeError("无法获取天气数据")
         daily_text = client.parse_daily(daily_data)
-        notify_text = f"{header}\n{daily_text}"
+        weather_info.append(daily_text)
 
-        # 获取台风信息
-        print("\n[INFO] 开始获取台风信息...")
-        storm_list = client.fetch_storm_list()
-        if storm_list and storm_list.get("storms"):
-            first_storm_id = storm_list["storms"][0].get("stormId")
-            if first_storm_id:
-                forecast = client.fetch_storm_forecast(first_storm_id)
-                storm_text = format_storm_forecast(forecast)
-                notify_text += "\n" + storm_text
+        # 整合所有信息
+        final_message = "\n".join(weather_info)
+        
+        # 打印信息
+        print("\n" + final_message)
+        print("\n[INFO] 天气信息获取完成")
 
         # 发送通知
-        print("\n[INFO] 正在发送通知...")
-        NotificationManager.send("天气预报", notify_text)
-        print("[INFO] 通知发送完成")
+        try:
+            notify.send("天气信息", final_message)
+            print("[INFO] 通知发送成功")
+        except Exception as e:
+            print(f"[WARN] 通知发送失败: {e}")
 
     except Exception as e:
         error_msg = f"程序运行出错: {str(e)}"
         print(f"\n[ERROR] {error_msg}")
-        NotificationManager.send("错误通知", error_msg)
+        try:
+            notify.send("天气信息获取失败", error_msg)
+        except:
+            pass
         sys.exit(1)
 
 
