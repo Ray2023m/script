@@ -121,7 +121,7 @@ def get_lottery_info(config, headers):
 
         print("\n6️⃣ 生成消息内容...")
         if is_ssq:
-            message = f"""✨【{title}第 {period}期】开奖结果✨\n
+            message = f"""✨【双色球第 {period}期】开奖结果✨\n
 ⏰ 开奖时间：{draw_date.strftime('%Y年%m月%d日 %H:%M')}（{weekday}）
 ⏳ 兑奖截止：{deadline.strftime('%Y年%m月%d日')}
 🎲 开奖号码：
@@ -138,7 +138,7 @@ def get_lottery_info(config, headers):
 🔄 数据更新时间：{update_time}
 """
         else:
-            message = f"""✨【{title}第 {period}期】开奖结果✨\n
+            message = f"""✨【超级大乐透第 {period}期】开奖结果✨\n
 ⏰ 开奖时间：{draw_date.strftime('%Y年%m月%d日 %H:%M')}（{weekday}）
 ⏳ 兑奖截止：{deadline.strftime('%Y年%m月%d日')}
 🎲 开奖号码（前区 + 后区）：
