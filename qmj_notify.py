@@ -45,11 +45,10 @@ next_level = html.xpath("//font[@color='#FF0000'][2]/b/text()")[0]
 
 message = f"""
 👤 用户名: {username}
+📆 本月签到: {month_days} 天
 📅 累计签到: {total_days} 天
-📆 本月签到: {month_days} 天
-📆 本月签到: {month_days} 天
 ⏰ 今天签到: {last_signin_time}
- 💰 今天奖励: 获得 {last_reward} 铜币,累计获得{total_reward} 铜币
+💰 今天奖励: 获得 {last_reward} 铜币,累计获得{total_reward} 铜币
 🏅 当前等级: {current_level}
 🔜 下一级等级: {next_level},还需要 {days_to_next} 天
 """
