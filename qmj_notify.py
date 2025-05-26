@@ -44,7 +44,7 @@ days_to_next = html.xpath('//p[contains(., "Tips")]/font[2]/b[1]/text()')[0]
 next_level = html.xpath("//font[@color='#FF0000'][2]/b/text()")[0]
 
 message = f"""
-👤  用户名: {username}
+👤 用户名: {username}
 📆 本月签到: {month_days} 天
 📅 累计签到: {total_days} 天
 ⏰ 今天签到: {last_signin_time}
