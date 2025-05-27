@@ -30,6 +30,38 @@ try:
 except ImportError:
     print("[WARN] 未找到notify模块，将使用标准输出")
 
+def print_success(text: str) -> None:
+    """打印成功信息"""
+    print(f"✅ {text}")
+
+def print_info(text: str) -> None:
+    """打印信息"""
+    print(f"ℹ️ {text}")
+
+def print_warning(text: str) -> None:
+    """打印警告信息"""
+    print(f"⚠️ {text}")
+
+def print_error(text: str) -> None:
+    """打印错误信息"""
+    print(f"❌ {text}")
+
+def print_header(text: str) -> None:
+    """打印标题"""
+    print(f"\n🌟 {text} 🌟")
+
+def print_progress(text: str) -> None:
+    """打印进度信息"""
+    print(f"🔄 {text}")
+
+def print_section(text: str) -> None:
+    """打印分区信息"""
+    print(f"\n📌 {text}")
+
+def print_subsection(text: str) -> None:
+    """打印子分区信息"""
+    print(f"\n➡️ {text}")
+
 # ====== 配置类 ======
 @dataclass
 class WeatherConfig:
@@ -203,7 +235,7 @@ class QWeatherClient:
             for endpoint, path in API_ENDPOINTS.items()
         }
         self._city_info_cache = None  # 添加城市信息缓存
-        print("[INFO] 和风天气客户端初始化完成")
+        print_success("和风天气客户端初始化完成")
 
     def _generate_jwt(self) -> str:
         """生成JWT令牌"""
@@ -221,7 +253,7 @@ class QWeatherClient:
             token = jwt.encode(payload, self.config.private_key, algorithm="EdDSA", headers=headers)
             return token if isinstance(token, str) else token.decode("utf-8")
         except Exception as e:
-            print(f"[ERROR] JWT生成失败: {e}")
+            print_error(f"JWT生成失败: {e}")
             raise RuntimeError(f"JWT生成失败: {e}")
 
     def _get_headers(self) -> Dict[str, str]:
@@ -246,25 +278,25 @@ class QWeatherClient:
         
         for retry in range(self.config.max_retries):
             try:
-                print(f"[INFO] 正在请求: {url}")
+                print_progress(f"正在请求: {url}")
                 response = requests.get(url, headers=headers, params=params, timeout=self.config.timeout)
                 response.raise_for_status()
                 
                 try:
                     data = response.json()
                 except ValueError as e:
-                    print(f"[ERROR] JSON解析失败: {e}")
+                    print_error(f"JSON解析失败: {e}")
                     return None
                 
                 return data
                     
             except requests.exceptions.RequestException as e:
-                print(f"[WARN] 请求失败 ({retry + 1}/{self.config.max_retries}): {e}")
+                print_warning(f"请求失败 ({retry + 1}/{self.config.max_retries}): {e}")
                 if retry == self.config.max_retries - 1:
                     raise RuntimeError(f"请求失败 ({retry + 1}/{self.config.max_retries}): {e}")
                 time.sleep(1)  # 重试前等待1秒
             except Exception as e:
-                print(f"[ERROR] 请求异常: {e}")
+                print_error(f"请求异常: {e}")
                 return None
         return None
 
@@ -274,18 +306,18 @@ class QWeatherClient:
         if self._city_info_cache is not None:
             return self._city_info_cache
 
-        print("[INFO] 正在获取城市信息...")
+        print_progress("正在获取城市信息...")
         params = {"location": self.config.location, "lang": "zh"}
         data = self._request(self.urls["city"], params)
         if not data:
-            print("[WARN] 未获取到城市信息")
+            print_warning("未获取到城市信息")
             return None
         locations = data.get("location", [])
         if not locations:
-            print("[WARN] 未找到位置信息")
+            print_warning("未找到位置信息")
             return None
         location = locations[0]
-        print(f"[INFO] 获取到城市信息: {location.get('name')}")
+        print_success(f"已获取城市信息: {location.get('name')}")
         
         # 缓存城市信息
         self._city_info_cache = location
@@ -293,29 +325,29 @@ class QWeatherClient:
 
     def fetch_daily(self) -> Optional[Dict[str, Any]]:
         """获取每日天气数据"""
-        print("[INFO] 正在获取每日天气数据...")
+        print_progress("正在获取每日天气数据...")
         params = {"location": self.config.location, "lang": "zh", "unit": "m"}
         data = self._request(self.urls["daily"], params)
         if data:
-            print("[INFO] 成功获取每日天气数据")
+            print_success("成功获取每日天气数据")
         else:
-            print("[WARN] 未获取到每日天气数据")
+            print_warning("未获取到每日天气数据")
         return data
 
     def fetch_air_quality(self, latitude: str, longitude: str) -> Optional[Dict[str, Any]]:
         """获取空气质量数据"""
-        print("[INFO] 正在获取空气质量数据...")
+        print_progress("正在获取空气质量数据...")
         url = self.urls["air_quality"].format(latitude=latitude, longitude=longitude)
         try:
             data = self._request(url)
             if data:
-                print("[INFO] 成功获取空气质量数据")
+                print_success("成功获取空气质量数据")
                 return data
             else:
-                print("[WARN] 未获取到空气质量数据")
+                print_warning("未获取到空气质量数据")
                 return None
         except Exception as e:
-            print(f"[ERROR] 获取空气质量数据失败: {e}")
+            print_error(f"获取空气质量数据失败: {e}")
             return None
 
     def parse_air_quality(self, data: Optional[Dict[str, Any]]) -> str:
@@ -329,7 +361,7 @@ class QWeatherClient:
             格式化的空气质量信息
         """
         if not data or "days" not in data or not data["days"]:
-            print("[WARN] 空气质量数据格式无效")
+            print_warning("空气质量数据格式无效")
             return "暂无空气质量数据"
 
         today = data["days"][0]
@@ -337,7 +369,7 @@ class QWeatherClient:
         # 获取中国标准AQI指数
         aqi = next((idx for idx in today["indexes"] if idx["code"] == "cn-mee"), None)
         if not aqi:
-            print("[WARN] 未找到AQI指数数据")
+            print_warning("未找到AQI指数数据")
             return "暂无空气质量数据"
 
         # 获取空气质量指数和等级
@@ -362,7 +394,7 @@ class QWeatherClient:
             格式化的天气信息
         """
         if not data or "daily" not in data or not data["daily"]:
-            print("[WARN] 天气数据格式无效")
+            print_warning("天气数据格式无效")
             return "无有效天气数据"
 
         daily = data["daily"][0]
@@ -377,7 +409,7 @@ class QWeatherClient:
         # 处理温度
         temp_min = daily.get("tempMin", "未知")
         temp_max = daily.get("tempMax", "未知")
-        temp_range = f"最高温度 {temp_max}°C,最低温度 {temp_min}°C." if temp_min != "未知" and temp_max != "未知" else "未知"
+        temp_range = f" 最高温度 {temp_max}°C, 最低温度 {temp_min}°C." if temp_min != "未知" and temp_max != "未知" else "未知"
 
         # 获取紫外线建议和每日提示
         uv_index = daily.get("uvIndex", "未知")
@@ -400,7 +432,7 @@ class QWeatherClient:
                         aqi_value = aqi.get("aqiDisplay", "未知")
                         level = aqi.get("level", "未知")
                         category = aqi.get("category", "未知")
-                        air_quality_text = f"💨 AQI指数: {aqi_value} 等级: {level} 类别: {category}"
+                        air_quality_text = f"💨 空气AQI指数: {aqi_value} 等级: {level} 类别: {category}"
 
         # 获取预警信息
         warning_text = ""
@@ -421,8 +453,8 @@ class QWeatherClient:
         # 构建输出信息
         lines = [
             "──────── 今日概览 ────────",
-            f"☀️ 日出日落:({daily.get('sunrise', '未知')}-{daily.get('sunset', '未知')})",
-            f"🌙 月升月落:({daily.get('moonrise', '未知')}-{daily.get('moonset', '未知')}){moon_phase}"
+            f"☀️ 日出日落: ({daily.get('sunrise', '未知')} - {daily.get('sunset', '未知')})",
+            f"🌙 月升月落: ({daily.get('moonrise', '未知')} - {daily.get('moonset', '未知')})  {moon_phase}"
         ]
 
         # 添加空气质量信息（如果存在）
@@ -431,16 +463,16 @@ class QWeatherClient:
 
         # 继续添加其他信息
         lines.extend([
-            f"🌡️ 温差范围:{temp_range}",
+            f"🌡️ 温差范围: {temp_range}",
             "──────── 天气趋势 ────────",
-            f"☀️ 白天:{text_day} {daily.get('windDirDay', '未知')}{daily.get('windScaleDay', '未知')}级({daily.get('windSpeedDay', '未知')}km/h)",
-            f"🌙 夜间:{text_night} {daily.get('windDirNight', '未知')}{daily.get('windScaleNight', '未知')}级({daily.get('windSpeedNight', '未知')}km/h)",
+            f"☀️ 白天: {text_day} {daily.get('windDirDay', '未知')} {daily.get('windScaleDay', '未知')} 级 ({daily.get('windSpeedDay', '未知')} km/h)",
+            f"🌙 夜间: {text_night} {daily.get('windDirNight', '未知')} {daily.get('windScaleNight', '未知')} 级 ({daily.get('windSpeedNight', '未知')} km/h)",
             "──────── 环境指标 ────────",
-            f"🔆 紫外线:{uv_index}级({uv_level})",
-            f"💧 降水概率:70% 🌧️ 累计:{daily.get('precip', '未知')}mm",
+            f"🔆 紫外线: {uv_index} 级({uv_level})",
+            f"💧 相对湿度: {daily.get('humidity', '未知')}%  🌧️ 累计:{daily.get('precip', '未知')}mm",
             "──────── 生活指南 ────────",
-            f"🧴 防晒建议:{uv_advice.split('：')[1] if '：' in uv_advice else uv_advice}",
-            f"🌂 出行提示:{daily_tip}"
+            f"🧴 防晒建议: {uv_advice.split('：')[1] if '：' in uv_advice else uv_advice}",
+            f"🌂 出行提示: {daily_tip}"
         ])
 
         # 添加预警信息（仅当有预警时）
@@ -467,35 +499,35 @@ class QWeatherClient:
         """
         if year is None:
             year = datetime.now().year
-        print(f"[INFO] 正在获取{year}年台风列表...")
+        print_progress(f"正在获取{year}年台风列表...")
         params = {"basin": basin, "year": str(year)}
         data = self._request(self.urls["storm_list"], params)
         if data and data.get("storms"):
-            print(f"[INFO] 获取到{len(data['storms'])}个台风信息")
+            print_success(f"获取到{len(data['storms'])}个台风信息")
         else:
-            print("[INFO] 当前没有台风信息")
+            print_warning("当前没有台风信息")
         return data
 
     def fetch_storm_forecast(self, storm_id: str) -> Optional[Dict[str, Any]]:
         """获取单个台风预报"""
-        print(f"[INFO] 正在获取台风预报信息 (ID: {storm_id})...")
+        print_progress(f"正在获取台风预报信息 (ID: {storm_id})...")
         params = {"stormId": storm_id}
         data = self._request(self.urls["storm_forecast"], params)
         if data:
-            print("[INFO] 成功获取台风预报信息")
+            print_success("成功获取台风预报信息")
         else:
-            print("[WARN] 未获取到台风预报信息")
+            print_warning("未获取到台风预报信息")
         return data
 
     def fetch_now(self) -> Optional[Dict[str, Any]]:
         """获取实时天气数据"""
-        print("[INFO] 正在获取实时天气数据...")
+        print_progress("正在获取实时天气数据...")
         params = {"location": self.config.location, "lang": "zh", "unit": "m"}
         data = self._request(self.urls["now"], params)
         if data:
-            print("[INFO] 成功获取实时天气数据")
+            print_success("成功获取实时天气数据")
         else:
-            print("[WARN] 未获取到实时天气数据")
+            print_warning("未获取到实时天气数据")
         return data
 
     def parse_now(self, data: Optional[Dict[str, Any]]) -> str:
@@ -509,7 +541,7 @@ class QWeatherClient:
             格式化的实时天气信息
         """
         if not data or "now" not in data:
-            print("[WARN] 实时天气数据格式无效")
+            print_warning("实时天气数据格式无效")
             return "无有效实时天气数据"
 
         now = data["now"]
@@ -548,23 +580,23 @@ class QWeatherClient:
         # 构建输出信息
         lines = [
             f"📍 深圳市·{city_name}区",
-            f"🌦️ 实时天气 {text} [{format_time(now.get('obsTime', ''))}更新]",
-            f"🌡️ {temp_display} 💧 湿度{now.get('humidity', '未知')}%",
-            f"🌬️ {now.get('windDir', '未知')}{now.get('windScale', '未知')}级({now.get('windSpeed', '未知')}km/h) ☁️ 云量{now.get('cloud', '未知')}%",
-            f"🏙️ 能见度{now.get('vis', '未知')}km 🌀 气压{now.get('pressure', '未知')}hPa"
+            f"🌦️ 实时天气: {text} [{format_time(now.get('obsTime', ''))}更新]",
+            f"🌡️ {temp_display}  💧 湿度: {now.get('humidity', '未知')}%",
+            f"🌬️ {now.get('windDir', '未知')}{now.get('windScale', '未知')}级({now.get('windSpeed', '未知')}km/h) ☁️ 云量: {now.get('cloud', '未知')}%",
+            f"🏙️ 能见度: {now.get('vis', '未知')}km 🌀 气压: {now.get('pressure', '未知')}hPa"
         ]
         return "\n".join(lines)
 
     def fetch_warning(self) -> Optional[Dict[str, Any]]:
         """获取灾害预警数据"""
-        print("[INFO] 正在获取灾害预警数据...")
+        print_progress("正在获取灾害预警数据...")
         params = {"location": self.config.location, "lang": "zh"}
         data = self._request(self.urls["warning"], params)
         if data:
-            print("[INFO] 成功获取灾害预警数据")
+            print_success("成功获取灾害预警数据")
             return data
         else:
-            print("[WARN] 未获取到灾害预警数据")
+            print_warning("未获取到灾害预警数据")
             return None
 
     def parse_warning(self, data: Optional[Dict[str, Any]]) -> str:
@@ -748,39 +780,20 @@ def get_daily_tip(temp_max: str, weather_day: str) -> str:
         return "❄️ 天气寒冷，请注意保暖。"
     else:
         return "😊 适宜出行，祝您心情愉快！"
-
 def main():
     """主函数"""
     try:
-        print("\n[INFO] 开始获取天气信息...")
-        
-        # 加载配置
         config = WeatherConfig.from_env()
-        print("[INFO] 配置加载完成")
-        
-        # 打印配置信息（不包含私钥）
-        print("\n[INFO] 当前配置:")
-        print("-" * 50)
-        print(f"Project ID: {config.project_id}")
-        print(f"Key ID: {config.key_id}")
-        print(f"Location: {config.location}")
-        print(f"Timeout: {config.timeout}s")
-        print(f"Max Retries: {config.max_retries}")
-        print("-" * 50)
-        
         client = QWeatherClient(config)
 
         # 获取城市信息
         city_info = client.fetch_city_name()
         if not city_info:
             raise RuntimeError("无法获取城市信息")
-            
-        city_name = city_info.get("name", "未知位置")
-        header = f"===== 今天又是新的一天 ====="
 
         # 收集所有天气信息
         weather_info = []
-        weather_info.append(header)
+        weather_info.append("===== 今天又是新的一天 =====")
 
         # 获取实时天气数据
         now_data = client.fetch_now()
@@ -797,21 +810,15 @@ def main():
 
         # 整合所有信息
         final_message = "\n".join(weather_info)
-        
-        # 打印信息
-        print("\n" + final_message)
-        print("\n[INFO] 天气信息获取完成")
 
         # 发送通知
         try:
             notify.send("天气信息", final_message)
-            print("[INFO] 通知发送成功")
         except Exception as e:
-            print(f"[WARN] 通知发送失败: {e}")
+            print(f"通知发送失败: {e}")
 
     except Exception as e:
         error_msg = f"程序运行出错: {str(e)}"
-        print(f"\n[ERROR] {error_msg}")
         try:
             notify.send("天气信息获取失败", error_msg)
         except:
