@@ -668,8 +668,6 @@ class QWeatherClient:
                 f"🕒 生效: {format_warning_time(warning.get('startTime', ''))}-{format_warning_time(warning.get('endTime', ''))}",
                 f"🏙️ 区域: {area_text}",
                 f"💥 影响: {impact_text}",
-                
-                "────────────────────────"
             ]
             lines.extend(warning_info)
 
