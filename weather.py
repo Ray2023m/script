@@ -95,8 +95,6 @@ API_ENDPOINTS = {
     "daily": "/v7/weather/3d",
     "now": "/v7/weather/now",
     "city": "/geo/v2/city/lookup",
-    "storm_list": "/v7/tropical/storm-list",
-    "storm_forecast": "/v7/tropical/storm-forecast",
     "air_quality": "/airquality/v1/daily/{latitude}/{longitude}",
     "warning": "/v7/warning/now",  # 新增灾害预警API
 }
@@ -104,7 +102,7 @@ API_ENDPOINTS = {
 # 预警类型映射
 WARNING_TYPE_MAP = {
     # 1000系列 - 气象预警
-    "1001": "🌀 台风预警","1002": "🌪️ 龙卷风预警","1003": "🌧️ 暴雨预警","1004": "❄️ 暴雪预警","1005": "❄️ 寒潮预警",
+    "1002": "🌪️ 龙卷风预警","1003": "🌧️ 暴雨预警","1004": "❄️ 暴雪预警","1005": "❄️ 寒潮预警",
     "1006": "💨 大风预警","1007": "🌪️ 沙尘暴预警","1008": "❄️ 低温冻害预警","1009": "🔥 高温预警","1010": "🔥 热浪预警",
     "1011": "🌡️ 干热风预警","1012": "🌪️ 下击暴流预警","1013": "🏔️ 雪崩预警","1014": "⚡️ 雷电预警","1015": "🧊 冰雹预警",
     "1016": "❄️ 霜冻预警","1017": "🌫️ 大雾预警","1018": "💨 低空风切变预警","1019": "🌫️ 霾预警","1020": "⛈️ 雷雨大风预警",
@@ -113,16 +111,8 @@ WARNING_TYPE_MAP = {
     "1031": "⛈️ 强对流预警","1032": "🌫️ 臭氧预警","1033": "❄️ 大雪预警","1034": "❄️ 寒冷预警","1035": "🌧️ 连阴雨预警",
     "1036": "💧 渍涝风险预警","1037": "🏔️ 地质灾害气象风险预警","1038": "🌧️ 强降雨预警","1039": "❄️ 强降温预警","1040": "❄️ 雪灾预警",
     "1041": "🔥 森林（草原）火险预警","1042": "🏥 医疗气象预警","1043": "⚡️ 雷暴预警","1044": "🏫 停课信号","1045": "🏢 停工信号",
-    "1046": "🌊 海上风险预警","1047": "🌪️ 春季沙尘天气预警","1048": "❄️ 降温预警","1049": "🌀 台风暴雨预警","1050": "❄️ 严寒预警",
-    "1051": "🌪️ 沙尘预警","1052": "🌊 海上雷雨大风预警","1053": "🌊 海上大雾预警","1054": "🌊 海上雷电预警","1055": "🌊 海上台风预警",
-    "1056": "❄️ 低温预警","1057": "❄️ 道路冰雪预警","1058": "⛈️ 雷暴大风预警","1059": "❄️ 持续低温预警","1060": "🌫️ 能见度不良预警",
-    "1061": "🌫️ 浓浮沉预警","1062": "🌊 海区大风预警","1063": "🌧️ 短历时强降水预警","1064": "🌧️ 短时强降雨预警","1065": "🌊 海区大雾预警",
-    "1066": "🥵 中暑气象条件预警","1067": "🌫️ 重污染天气预警","1068": "⚠️ 一氧化碳中毒气象条件预警","1069": "🤧 感冒等呼吸道疾病气象条件预警",
-    "1071": "🤢 腹泻等肠道疾病气象条件预警","1072": "❤️ 心脑血管疾病气象条件预警","1073": "💧 洪涝灾害气象风险预警",
-    "1074": "🌫️ 重污染气象条件预警","1075": "💧 城市内涝气象风险预警","1076": "💧 洪水灾害气象风险预警","1077": "🔥 森林火险气象风险预警",
-    "1078": "🌵 气象干旱预警","1079": "🌾 农业气象风险预警","1080": "💨 强季风预警","1081": "⚡️ 电线积冰预警",
-    "1082": "🏥 脑卒中气象风险预警","1084": "🔥 森林（草原）火灾气象风险预警","1085": "⛈️ 雷雨强风预警","1086": "❄️ 低温凝冻预警",
-    "1087": "❄️ 低温冷害预警","1088": "🌾 全国农业气象灾害风险预警","1089": "🌾 冬小麦干热风灾害风险预警",
+    "1046": "🌊 海上风险预警","1047": "🌪️ 春季沙尘天气预警","1048": "❄️ 降温预警","1050": "❄️ 严寒预警",
+    "1051": "🌪️ 沙尘预警","1052": "🌊 海上雷雨大风预警","1053": "🌊 海上大雾预警","1054": "🌊 海上雷电预警",
 
     # 1200系列 - 水文预警
     "1201": "💧 洪水预警","1202": "💧 内涝预警","1203": "💧 水库重大险情预警","1204": "💧 堤防重大险情预警",
@@ -212,11 +202,6 @@ WEATHER_CODE_MAP = {
 
     # 其他
     "900": "🔥 热", "901": "❄️ 冷", "999": "❓ 未知",
-}
-
-TYPHOON_MAP = {
-    "TS": "🌪️ 热带风暴", "TD": "🌬️ 热带低压", "HU": "🌀 飓风",
-    "TY": "🌪️ 台风", "ST": "💨 强热带风暴", "SD": "🌪️ 热带风暴",
 }
 
 class QWeatherClient:
@@ -440,16 +425,6 @@ class QWeatherClient:
         if warning_data and warning_data.get("warning"):
             warning_text = self.parse_warning(warning_data)
 
-        # 获取台风信息
-        storm_text = ""
-        storm_list = self.fetch_storm_list()
-        if storm_list and storm_list.get("storms"):
-            first_storm_id = storm_list["storms"][0].get("stormId")
-            if first_storm_id:
-                forecast = self.fetch_storm_forecast(first_storm_id)
-                if forecast:
-                    storm_text = format_storm_forecast(forecast)
-
         # 构建输出信息
         lines = [
             "──────── 今日概览 ────────",
@@ -479,112 +454,6 @@ class QWeatherClient:
         if warning_text:
             lines.extend(warning_text.split("\n"))
 
-        # 添加台风信息（仅当有台风时）
-        if storm_text:
-            lines.append("──────── 台风信息 ────────")
-            lines.extend(storm_text.split("\n"))
-
-        return "\n".join(lines)
-
-    def fetch_storm_list(self, basin: str = "NP", year: Optional[int] = None) -> Optional[Dict[str, Any]]:
-        """
-        获取台风列表
-        
-        Args:
-            basin: 台风区域
-            year: 年份
-            
-        Returns:
-            台风列表数据
-        """
-        if year is None:
-            year = datetime.now().year
-        print_progress(f"正在获取{year}年台风列表...")
-        params = {"basin": basin, "year": str(year)}
-        data = self._request(self.urls["storm_list"], params)
-        if data and data.get("storms"):
-            print_success(f"获取到{len(data['storms'])}个台风信息")
-        else:
-            print_warning("当前没有台风信息")
-        return data
-
-    def fetch_storm_forecast(self, storm_id: str) -> Optional[Dict[str, Any]]:
-        """获取单个台风预报"""
-        print_progress(f"正在获取台风预报信息 (ID: {storm_id})...")
-        params = {"stormId": storm_id}
-        data = self._request(self.urls["storm_forecast"], params)
-        if data:
-            print_success("成功获取台风预报信息")
-        else:
-            print_warning("未获取到台风预报信息")
-        return data
-
-    def fetch_now(self) -> Optional[Dict[str, Any]]:
-        """获取实时天气数据"""
-        print_progress("正在获取实时天气数据...")
-        params = {"location": self.config.location, "lang": "zh", "unit": "m"}
-        data = self._request(self.urls["now"], params)
-        if data:
-            print_success("成功获取实时天气数据")
-        else:
-            print_warning("未获取到实时天气数据")
-        return data
-
-    def parse_now(self, data: Optional[Dict[str, Any]]) -> str:
-        """
-        解析实时天气数据
-        
-        Args:
-            data: 实时天气数据
-            
-        Returns:
-            格式化的实时天气信息
-        """
-        if not data or "now" not in data:
-            print_warning("实时天气数据格式无效")
-            return "无有效实时天气数据"
-
-        now = data["now"]
-
-        # 处理天气现象
-        text = WEATHER_CODE_MAP.get(now.get("icon", ""), now.get("text", "未知"))
-        
-        # 处理体感温度
-        feels_like = now.get("feelsLike", "")
-        temp_display = f"{now.get('temp', '未知')}°C"
-        if feels_like:
-            temp_display += f"(体感{feels_like}°C)"
-        
-        # 格式化时间
-        def format_time(time_str: str) -> str:
-            try:
-                if not time_str:
-                    return "未知"
-                # 处理带时区的时间格式
-                if "+" in time_str:
-                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%M%z")
-                else:
-                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%MZ")
-                    # 转换为北京时间（UTC+8）
-                    dt = dt.replace(hour=(dt.hour + 8) % 24)
-                    if dt.hour < 8:  # 如果加8小时后小于8点，说明跨天了
-                        dt = dt.replace(day=dt.day + 1)
-                return dt.strftime("%H:%M")
-            except ValueError:
-                return "未知"
-
-        # 获取城市信息
-        city_info = self.fetch_city_name()
-        city_name = city_info.get("name", "未知位置") if city_info else "未知位置"
-
-        # 构建输出信息
-        lines = [
-            f"📍 深圳市·{city_name}区",
-            f"🌦️ 实时天气: {text} [{format_time(now.get('obsTime', ''))}更新]",
-            f"🌡️ {temp_display}  💧 湿度: {now.get('humidity', '未知')}%",
-            f"🌬️ {now.get('windDir', '未知')}{now.get('windScale', '未知')}级({now.get('windSpeed', '未知')}km/h) ☁️ 云量: {now.get('cloud', '未知')}%",
-            f"🏙️ 能见度: {now.get('vis', '未知')}km 🌀 气压: {now.get('pressure', '未知')}hPa"
-        ]
         return "\n".join(lines)
 
     def fetch_warning(self) -> Optional[Dict[str, Any]]:
@@ -673,34 +542,73 @@ class QWeatherClient:
 
         return "\n".join(lines)
 
+    def fetch_now(self) -> Optional[Dict[str, Any]]:
+        """获取实时天气数据"""
+        print_progress("正在获取实时天气数据...")
+        params = {"location": self.config.location, "lang": "zh", "unit": "m"}
+        data = self._request(self.urls["now"], params)
+        if data:
+            print_success("成功获取实时天气数据")
+        else:
+            print_warning("未获取到实时天气数据")
+        return data
 
-def format_storm_forecast(data: Optional[Dict[str, Any]]) -> str:
-    """格式化台风预报"""
-    if not data or "forecasts" not in data or not data["forecasts"]:
-        return "无台风预报数据"
+    def parse_now(self, data: Optional[Dict[str, Any]]) -> str:
+        """
+        解析实时天气数据
+        
+        Args:
+            data: 实时天气数据
+            
+        Returns:
+            格式化的实时天气信息
+        """
+        if not data or "now" not in data:
+            print_warning("实时天气数据格式无效")
+            return "无有效实时天气数据"
 
-    storm_info = data.get("storm", {})
-    storm_name = storm_info.get("nameCn", "未知台风")
-    storm_code = storm_info.get("stormType", "")
-    storm_type = TYPHOON_MAP.get(storm_code, storm_code)
+        now = data["now"]
 
-    forecasts = data["forecasts"]
-    lines = [f"===== 台风预报: {storm_name} {storm_type} ====="]
+        # 处理天气现象
+        text = WEATHER_CODE_MAP.get(now.get("icon", ""), now.get("text", "未知"))
+        
+        # 处理体感温度
+        feels_like = now.get("feelsLike", "")
+        temp_display = f"{now.get('temp', '未知')}°C"
+        if feels_like:
+            temp_display += f"(体感{feels_like}°C)"
+        
+        # 格式化时间
+        def format_time(time_str: str) -> str:
+            try:
+                if not time_str:
+                    return "未知"
+                # 处理带时区的时间格式
+                if "+" in time_str:
+                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%M%z")
+                else:
+                    dt = datetime.strptime(time_str, "%Y-%m-%dT%H:%MZ")
+                    # 转换为北京时间（UTC+8）
+                    dt = dt.replace(hour=(dt.hour + 8) % 24)
+                    if dt.hour < 8:  # 如果加8小时后小于8点，说明跨天了
+                        dt = dt.replace(day=dt.day + 1)
+                return dt.strftime("%H:%M")
+            except ValueError:
+                return "未知"
 
-    for fc in forecasts:
-        fc_time = fc.get("fcstTime", "")
-        time_str = fc_time[-5:] if fc_time else ""
-        wind_scale = fc.get("windScale", "")
-        wind_speed = fc.get("windSpeed", "")
-        pressure = fc.get("pressure", "")
-        lat = fc.get("lat", "")
-        lon = fc.get("lon", "")
-        status = fc.get("status", "")
+        # 获取城市信息
+        city_info = self.fetch_city_name()
+        city_name = city_info.get("name", "未知位置") if city_info else "未知位置"
 
-        lines.append(
-            f"时间: {time_str}，风力等级: {wind_scale}级，风速: {wind_speed}km/h，气压: {pressure}hPa，位置: {lat},{lon}，状态: {status}"
-        )
-    return "\n".join(lines)
+        # 构建输出信息
+        lines = [
+            f"📍 深圳市·{city_name}区",
+            f"🌦️ 实时天气: {text} [{format_time(now.get('obsTime', ''))}更新]",
+            f"🌡️ {temp_display}  💧 湿度: {now.get('humidity', '未知')}%",
+            f"🌬️ {now.get('windDir', '未知')}{now.get('windScale', '未知')}级({now.get('windSpeed', '未知')}km/h) ☁️ 云量: {now.get('cloud', '未知')}%",
+            f"🏙️ 能见度: {now.get('vis', '未知')}km 🌀 气压: {now.get('pressure', '未知')}hPa"
+        ]
+        return "\n".join(lines)
 
 def classify_uv_index(uv_index: str) -> str:
     """
@@ -778,6 +686,7 @@ def get_daily_tip(temp_max: str, weather_day: str) -> str:
         return "❄️ 天气寒冷，请注意保暖。"
     else:
         return "😊 适宜出行，祝您心情愉快！"
+
 def main():
     """主函数"""
     try:
