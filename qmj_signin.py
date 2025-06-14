@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-阡陌居论坛自动签到脚本
-功能：自动完成每日签到并申请威望红包任务
-适配：青龙面板等自动化工具
-作者：原代码来源未知
+阡陌居签到脚本
+版本: 1.0.0
+作者: madrays
+功能:
+- 自动完成阡陌居每日签到
+- 支持签到失败重试
+- 保存签到历史记录
+- 提供详细的签到信息显示
 """
 
-'''
-new Env('阡陌居签到');
-cron: 50 8 * * *
-'''
-
+import os
 import re
+import time
+import json
 import random
 import requests
-import time
-import os
-from urllib.parse import urljoin
 from datetime import datetime
+from typing import Dict, Optional
+from urllib.parse import urljoin
 from lxml import etree
 
 # 通知模块，适配青龙面板
@@ -28,27 +29,38 @@ except ImportError:
     def send(title, content):
         print(f"{title}\n{content}")
 
-class QMAutoSigner:
-    """阡陌居自动签到类"""
-    
-    def __init__(self, cookie):
-        """初始化签到器
-        
-        Args:
-            cookie (str): 论坛登录cookie字符串
-        """
+# 默认环境变量
+os.environ.setdefault('QMJ_MAX_RETRIES', '3')
+os.environ.setdefault('QMJ_RETRY_INTERVAL', '30')
+
+# 青龙面板环境变量
+COOKIE = os.getenv('QMJ_COOKIE', '')  # 阡陌居Cookie
+MAX_RETRIES = int(os.getenv('QMJ_MAX_RETRIES', '3'))  # 最大重试次数
+RETRY_INTERVAL = int(os.getenv('QMJ_RETRY_INTERVAL', '30'))  # 重试间隔(秒)
+
+class QMJSign:
+    def __init__(self):
+        self.cookie = COOKIE
+        self.max_retries = MAX_RETRIES
+        self.retry_interval = RETRY_INTERVAL
+        self.history_file = 'qmj_sign_history.json'
         self.base_url = "https://www.1000qm.vip/"
         self.session = requests.Session()
-        
-        # 设置请求头，模拟浏览器访问
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Referer': self.base_url
-        })
-        
-        self._set_cookies(cookie)
         self.log_msgs = []  # 存储日志消息
         
+        # 设置请求头
+        self.session.headers.update({
+            "Host": "www.1000qm.vip",
+            "Connection": "keep-alive",
+            "Cache-Control": "max-age=0",
+            "DNT": "1",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.6045.160 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept-Language": "zh-CN,zh;q=0.9"
+        })
+
         # 配置参数
         self.config = {
             'sign_delay': 2,        # 签到延迟
@@ -60,16 +72,6 @@ class QMAutoSigner:
             }
         }
 
-    def _set_cookies(self, cookie_str):
-        """解析并设置cookie"""
-        cookies = {}
-        for item in cookie_str.split(';'):
-            item = item.strip()
-            if '=' in item:
-                key, value = item.split('=', 1)
-                cookies[key] = value
-        self.session.cookies.update(cookies)
-
     def _log(self, message):
         """记录日志"""
         print(message)
@@ -79,65 +81,200 @@ class QMAutoSigner:
         """随机选择签到心情"""
         return random.choice(list(self.config['moods'].keys()))
 
-    def _check_signed(self):
-        """检查今日是否已签到"""
-        url = urljoin(self.base_url, "plugin.php?id=dsu_paulsign:sign")
-        response = self.session.get(url)
+    def sign(self, retry_count=0):
+        """执行签到"""
+        self._log("🚀 阡陌居签到开始")
         
-        if "您今天已经签到过了" in response.text:
-            return True
-        if 'id="mnqian"' in response.text:  # 签到按钮存在
-            return False
-        return True  # 其他情况默认已签到
-
-    def _do_sign(self):
-        """执行签到操作"""
+        # 检查Cookie
+        if not self.cookie:
+            self._log("❌ 未配置Cookie，请在环境变量中设置QMJ_COOKIE")
+            return
+        
+        # 解析Cookie
+        cookies = {}
         try:
-            # 1. 获取签到页面和formhash
-            url = urljoin(self.base_url, "plugin.php?id=dsu_paulsign:sign")
-            response = self.session.get(url)
-            
-            formhash_match = re.search(r'formhash=([a-f0-9]+)', response.text)
-            if not formhash_match:
-                raise Exception("无法获取formhash")
-            
-            formhash = formhash_match.group(1)
-            self._log(f"获取 formhash 成功：{formhash}")
+            for cookie_item in self.cookie.split(';'):
+                if '=' in cookie_item:
+                    name, value = cookie_item.strip().split('=', 1)
+                    cookies[name] = value
+            self.session.cookies.update(cookies)
+        except Exception as e:
+            self._log(f"❌ Cookie解析错误: {str(e)}")
+            return
 
-            # 2. 随机选择心情
+        # 检查Cookie是否有效
+        if not self._check_cookie_valid():
+            self._log("❌ Cookie无效或已过期，请更新Cookie")
+            return
+
+        # 检查今日是否已签到
+        if self._is_already_signed_today():
+            self._log("✔️ 今日已签到")
+            self._fetch_sign_info()
+            return
+
+        try:
+            # 访问首页获取formhash
+            self._log("正在访问阡陌居首页...")
+            response = self.session.get(self.base_url, timeout=10)
+            formhash_match = re.search(r'name="formhash" value="(.+)"', response.text)
+            
+            if not formhash_match:
+                if retry_count < self.max_retries:
+                    self._log(f"未找到formhash参数，{self.retry_interval}秒后进行第{retry_count+1}次重试...")
+                    time.sleep(self.retry_interval)
+                    return self.sign(retry_count + 1)
+                else:
+                    self._log("❌ 未找到formhash参数，请检查站点是否变更")
+                    return
+
+            formhash = formhash_match.group(1)
+            self._log(f"成功获取formhash: {formhash[:10]}...")
+
+            # 随机选择心情
             mood = self._get_random_mood()
-            self._log(f"选择心情：{self.config['moods'][mood]}")
             time.sleep(self.config['sign_delay'])
 
-            # 3. 提交签到请求
+            # 执行签到
+            self._log("正在执行签到...")
             sign_url = urljoin(self.base_url, "plugin.php?id=dsu_paulsign:sign&operation=qiandao&infloat=1&inajax=1")
-            data = {
-                'formhash': formhash,
-                'qdxq': mood,           # 签到心情
-                'qdmode': '1',          # 签到模式
-                'todaysay': self.config['sign_text'],  # 签到感言
-                'fastreply': '0'
+            post_data = {
+                "formhash": formhash,
+                "qdxq": mood,
+                "qdmode": "1",
+                "todaysay": self.config['sign_text'],
+                "fastreply": "0"
             }
 
-            response = self.session.post(sign_url, data=data)
+            response = self.session.post(sign_url, data=post_data, timeout=15)
+            log_match = re.search(r'<div class="c">([^>]+)<', response.text)
 
-            # 4. 检查签到结果
-            if "签到成功" in response.text:
-                msg_match = re.search(r'<div class="c">(.+?)</div>', response.text)
-                msg = msg_match.group(1) if msg_match else "签到成功"
-                self._log(f"✅ 签到成功：{msg}")
-                self._fetch_sign_info()
-                return True
-            elif "已经签到" in response.text:
-                self._log("ℹ️ 今日已签到")
-                self._fetch_sign_info()
-                return True
+            if log_match:
+                log_message = log_match.group(1).strip()
+                self._log(f"签到响应消息: {log_message}")
+
+                # 处理签到结果
+                if "成功" in log_message or "签到" in log_message:
+                    self._handle_success(log_message)
+                elif "已经签到" in log_message or "已签到" in log_message:
+                    self._handle_already_signed(log_message)
+                else:
+                    self._handle_failure(log_message)
             else:
-                raise Exception("签到失败")
-                
+                if retry_count < self.max_retries:
+                    self._log(f"未找到响应消息，{self.retry_interval}秒后进行第{retry_count+1}次重试...")
+                    time.sleep(self.retry_interval)
+                    return self.sign(retry_count + 1)
+                else:
+                    self._log("❌ 未找到响应消息，请检查站点是否变更")
+
+        except requests.Timeout:
+            if retry_count < self.max_retries:
+                self._log(f"请求超时，{self.retry_interval}秒后进行第{retry_count+1}次重试...")
+                time.sleep(self.retry_interval)
+                return self.sign(retry_count + 1)
+            else:
+                self._log("❌ 请求多次超时，请检查网络连接")
         except Exception as e:
-            self._log(f"❌ 签到异常：{str(e)}")
+            self._log(f"❌ 发生错误: {str(e)}")
+
+        # 申请威望红包任务
+        self._check_task()
+        
+        # 发送通知
+        send("阡陌居自动签到", "\n".join(self.log_msgs))
+
+    def _check_cookie_valid(self) -> bool:
+        """检查Cookie是否有效"""
+        try:
+            response = self.session.get(self.base_url, timeout=10)
+            return "退出" in response.text or "个人资料" in response.text or "用户名" in response.text
+        except:
             return False
+
+    def _is_already_signed_today(self) -> bool:
+        """检查今天是否已经成功签到"""
+        try:
+            if not os.path.exists(self.history_file):
+                return False
+
+            with open(self.history_file, 'r', encoding='utf-8') as f:
+                history = json.load(f)
+
+            today = datetime.now().strftime('%Y-%m-%d')
+            today_records = [
+                record for record in history
+                if record.get("date", "").startswith(today)
+                and record.get("status") in ["签到成功", "已签到"]
+            ]
+
+            return len(today_records) > 0
+        except:
+            return False
+
+    def _save_sign_history(self, sign_data: Dict):
+        """保存签到历史记录"""
+        try:
+            history = []
+            if os.path.exists(self.history_file):
+                with open(self.history_file, 'r', encoding='utf-8') as f:
+                    history = json.load(f)
+
+            history.append(sign_data)
+            
+            # 只保留最近30天的记录
+            retention_days = 30
+            now = datetime.now()
+            valid_history = []
+            
+            for record in history:
+                try:
+                    record_date = datetime.strptime(record["date"], '%Y-%m-%d %H:%M:%S')
+                    if (now - record_date).days < retention_days:
+                        valid_history.append(record)
+                except:
+                    continue
+
+            with open(self.history_file, 'w', encoding='utf-8') as f:
+                json.dump(valid_history, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self._log(f"保存签到历史记录失败: {str(e)}")
+
+    def _handle_success(self, message: str):
+        """处理签到成功"""
+        sign_dict = {
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "status": "签到成功",
+            "message": message
+        }
+        
+        # 尝试提取积分信息
+        points_match = re.search(r'(\d+)', message)
+        if points_match:
+            sign_dict["points"] = points_match.group(1)
+        
+        self._save_sign_history(sign_dict)
+        self._fetch_sign_info()
+
+    def _handle_already_signed(self, message: str):
+        """处理已签到情况"""
+        sign_dict = {
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "status": "已签到",
+            "message": message
+        }
+        self._save_sign_history(sign_dict)
+        self._fetch_sign_info()
+
+    def _handle_failure(self, message: str):
+        """处理签到失败"""
+        sign_dict = {
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "status": f"签到失败: {message}",
+            "message": message
+        }
+        self._save_sign_history(sign_dict)
+        self._log(f"❌ 签到失败: {message}")
 
     def _fetch_sign_info(self):
         """获取并显示签到信息"""
@@ -216,45 +353,16 @@ class QMAutoSigner:
             if "任务已成功申请" in response.text:
                 self._log("🎉 威望红包任务申请成功")
             elif "已经申请过此任务" in response.text:
-                self._log("ℹ️ 已申请过任务")
+                # 不显示已申请过的消息，减少输出
+                pass
             else:
-                self._log("⚠️ 任务申请失败")
+                # 不显示任务申请失败的消息，减少输出
+                pass
                 
         except Exception as e:
-            self._log(f"❌ 任务申请异常：{str(e)}")
+            # 不显示任务申请异常，减少输出
+            pass
 
-    def auto_sign(self):
-        """执行自动签到主流程"""
-        self._log("🚀 阡陌居签到任务开始")
-        
-        # 检查是否已签到
-        if self._check_signed():
-            self._log("✔️ 今日已签到")
-            self._fetch_sign_info()
-        else:
-            # 执行签到
-            if self._do_sign():
-                self._log("✅ 签到流程完成")
-            else:
-                self._log("❌ 签到流程失败")
-        
-        # 申请威望红包任务
-        self._check_task()
-        
-        self._log("🏁 签到任务执行完毕")
-        
-        # 发送通知
-        send("阡陌居自动签到", "\n".join(self.log_msgs))
-
-# 主程序入口
 if __name__ == "__main__":
-    # 从环境变量获取cookie
-    cookie = os.environ.get("QMJ_COOKIE")
-    
-    if not cookie:
-        print("❌ 环境变量 QMJ_COOKIE 未设置")
-        send("阡陌居自动签到", "❌ 环境变量 QMJ_COOKIE 未设置，脚本终止")
-    else:
-        # 创建签到器并执行签到
-        signer = QMAutoSigner(cookie)
-        signer.auto_sign()
+    signer = QMJSign()
+    signer.sign()
