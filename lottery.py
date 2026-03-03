@@ -144,7 +144,7 @@ def format_message(lottery_type,data):
 🎲 开奖号码：
 ═══════════════════
 {red_balls}  {blue_ball}
-═══════════════════
+════════════════
 💰 销售额: {fmt_money(data['销售额'])}
 🏦 奖池金额: {fmt_money(data['奖池金额'])}
 
