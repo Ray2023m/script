@@ -101,10 +101,16 @@ def get_latest_dlt():
     }
 
 
-# ✅ 生成通知消息（每个数字前带 emoji，去掉逗号，美观显示）
+# ✅ 生成通知消息（每个数字前带 emoji，去掉逗号，金额加千位分隔符+元）
 def format_message(lottery_type, data):
+    # 格式化金额，加千位分隔符 + 元
+    def fmt_money(val):
+        try:
+            return f"{int(val):,} 元"
+        except:
+            return f"{val} 元"
+
     if lottery_type == 'ssq':
-        # 红球 + 蓝球
         red_nums = data['开奖号码'].split(' + ')[0].replace(',', ' ').split()
         blue_num = data['开奖号码'].split(' + ')[1]
         red_balls = ' '.join([f"🔴{num}" for num in red_nums])
@@ -115,16 +121,15 @@ def format_message(lottery_type, data):
 ══════════════
 {red_balls}  {blue_ball}
 ══════════════
-💰 销售额: {data['销售额']}
-🏦 奖池金额: {data['奖池金额']}
+💰 销售额: {fmt_money(data['销售额'])}
+🏦 奖池金额: {fmt_money(data['奖池金额'])}
 
-🥇 一等奖：{data['一等奖注数']} 注，单注奖金 {data['一等奖金额']} 元
-🥈 二等奖：{data['二等奖注数']} 注，单注奖金 {data['二等奖金额']} 元
+🥇 一等奖：{data['一等奖注数']} 注，单注奖金 {fmt_money(data['一等奖金额'])}
+🥈 二等奖：{data['二等奖注数']} 注，单注奖金 {fmt_money(data['二等奖金额'])}
 
 🌐 官方网站：{LOTTERY_CONFIG['ssq']['official']}
 """
     else:
-        # 大乐透 前区 + 后区
         nums = data['开奖号码'].replace(',', '').split()
         front = ' '.join([f"🟡{num}" for num in nums[:5]])
         back = ' '.join([f"🔵{num}" for num in nums[5:]])
@@ -134,8 +139,8 @@ def format_message(lottery_type, data):
 ══════════════
 {front}   {back}
 ══════════════
-💰 销售额: {data['销售额']}
-🏦 奖池金额: {data['奖池金额']}
+💰 销售额: {fmt_money(data['销售额'])}
+🏦 奖池金额: {fmt_money(data['奖池金额'])}
 
 🌐 官方网站：{LOTTERY_CONFIG['dlt']['official']}
 """
