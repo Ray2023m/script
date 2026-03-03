@@ -1,31 +1,35 @@
+'''
+new Env('彩票开奖信息')
+cron: 20 22 * * *
+'''
+
 import requests
 import datetime
-import time
 import notify
-import xml.etree.ElementTree as ET
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-# 彩票配置
+# ✅ 彩票配置
 LOTTERY_CONFIG = {
     'ssq': {
         'name': '双色球',
-        'url': 'https://kaijiang.500.com/static/info/kaijiang/xml/ssq/list.xml',
-        'draw_days': [1, 3, 6],  # 星期二、四、日
-        'time': (21, 15),
+        'url': 'https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice',
+        'draw_days': [1, 3, 6],  # 周二、四、日
         'official': 'https://www.cwl.gov.cn',
     },
     'dlt': {
-        'name': '超级大乐透',
-        'url': 'https://kaijiang.500.com/static/info/kaijiang/xml/dlt/list.xml',
-        'draw_days': [0, 2, 5],  # 星期一、三、六
-        'time': (21, 25),
+        'name': '大乐透',
+        'url': 'https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry',
+        'draw_days': [0, 2, 5],  # 周一、三、六
         'official': 'https://www.lottery.gov.cn',
     }
 }
 
-# 自动识别今天开奖的彩票类型
+
+# ✅ 判断今天是否有开奖
 def get_today_lottery():
-    today = datetime.date.today().weekday()
-    weekday_map = ['一','二','三','四','五','六','日']
+    today = datetime.date.today().weekday()  # 0=周一
+    weekday_map = ['一', '二', '三', '四', '五', '六', '日']
     print(f"🗓️ 今天是星期{weekday_map[today]}")
     for key, config in LOTTERY_CONFIG.items():
         if today in config['draw_days']:
@@ -34,78 +38,125 @@ def get_today_lottery():
     print("❌ 今天没有彩票开奖")
     return None, None
 
-# 自动重试请求
-def get_with_retries(url, headers, retries=3, backoff=0.5):
+
+# ✅ 自动重试请求
+def get_with_retries(url, headers=None, params=None, retries=3, backoff=0.5):
     session = requests.Session()
-    from requests.adapters import HTTPAdapter
-    from urllib3.util.retry import Retry
-    retry = Retry(total=retries, backoff_factor=backoff, status_forcelist=[500,502,503,504], allowed_methods=["GET"])
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=["GET"]
+    )
     adapter = HTTPAdapter(max_retries=retry)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    return session.get(url, headers=headers, timeout=10)
-
-# 抓取最新开奖数据
-def fetch_latest_lottery(config):
-    url = f"{config['url']}?_A={int(time.time())}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    resp = get_with_retries(url, headers)
-    resp.encoding = 'utf-8'
-    root = ET.fromstring(resp.text)
-    rows = root.findall("row")
-    if not rows:
-        print("❌ 未获取到开奖数据")
-        return None
-    latest = rows[0]
-    issue = latest.get("expect")
-    opencode = latest.get("opencode")
-    opentime = latest.get("opentime")
-
-    # 拆分红球/蓝球
-    red, blue = [], []
-    if opencode:
-        if "|" in opencode:
-            red_str, blue_str = opencode.split("|")
-            red = [x.strip() for x in red_str.split(",")]
-            blue = [x.strip() for x in blue_str.split(",")]
-        elif "+" in opencode:
-            red_str, blue_str = opencode.split("+")
-            red = [x.strip() for x in red_str.split(",")]
-            blue = [x.strip() for x in blue_str.split(",")]
-
-    # 优化文本显示
-    red_text = " ".join(red)
-    blue_text = " ".join(blue)
-
-    # 格式化开奖时间
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
     try:
-        draw_date = datetime.datetime.strptime(opentime, "%Y-%m-%d %H:%M:%S")
-        draw_date = draw_date.replace(hour=config['time'][0], minute=config['time'][1])
-        weekday = ['星期一','星期二','星期三','星期四','星期五','星期六','星期日'][draw_date.weekday()]
-    except:
-        draw_date = opentime
-        weekday = ""
+        response = session.get(url, headers=headers, params=params, timeout=10)
+        response.raise_for_status()
+        return response
+    except Exception as e:
+        print(f"❌ 请求失败: {e}")
+        raise
 
-    # 构建消息
-    message = f"""✨【{config['name']}第 {issue} 期】开奖结果✨
-⏰ 开奖时间：{draw_date} {weekday}
+
+# ✅ 获取双色球最新一期
+def get_latest_ssq():
+    config = LOTTERY_CONFIG['ssq']
+    headers = {"User-Agent": "Mozilla/5.0", "Referer": config['official']}
+    params = {"name": "ssq", "issueCount": 1}
+    resp = get_with_retries(config['url'], headers=headers, params=params)
+    data = resp.json()
+    result = data["result"][0]
+    numbers = result["red"] + " + " + result["blue"]
+    first = result["prizegrades"][0]
+    second = result["prizegrades"][1]
+    return {
+        "期号": result["code"],
+        "开奖日期": result["date"],
+        "开奖号码": numbers,
+        "销售额": result["sales"],
+        "一等奖注数": first["typenum"],
+        "一等奖金额": first["typemoney"],
+        "二等奖注数": second["typenum"],
+        "二等奖金额": second["typemoney"],
+        "奖池金额": result["poolmoney"]
+    }
+
+
+# ✅ 获取大乐透最新一期
+def get_latest_dlt():
+    config = LOTTERY_CONFIG['dlt']
+    headers = {"User-Agent": "Mozilla/5.0", "Referer": config['official']}
+    params = {"gameNo": "85", "provinceId": "0", "pageSize": "1", "isVerify": "1"}
+    resp = get_with_retries(config['url'], headers=headers, params=params)
+    data = resp.json()
+    latest = data.get("value", {}).get("list", [{}])[0]
+    return {
+        "期号": latest.get("lotteryDrawNum", "-"),
+        "开奖日期": latest.get("lotteryDrawTime", "-"),
+        "开奖号码": latest.get("lotteryDrawResult", "-"),
+        "销售额": latest.get("totalSaleAmount", "-"),
+        "奖池金额": latest.get("poolBalanceAfterdraw", "-")
+    }
+
+
+# ✅ 生成通知消息（每个数字前带 emoji，去掉逗号，美观显示）
+def format_message(lottery_type, data):
+    if lottery_type == 'ssq':
+        # 红球 + 蓝球
+        red_nums = data['开奖号码'].split(' + ')[0].replace(',', ' ').split()
+        blue_num = data['开奖号码'].split(' + ')[1]
+        red_balls = ' '.join([f"🔴{num}" for num in red_nums])
+        blue_ball = f"🔵{blue_num}"
+        msg = f"""✨【双色球第 {data['期号']}期】开奖结果✨
+⏰ 开奖日期：{data['开奖日期']}
 🎲 开奖号码：
-═══════════════════
-🔴{red_text}  🔵{blue_text}
-🌐 官方网站：{config['official']}
-"""
-    return message
+══════════════
+{red_balls}  {blue_ball}
+══════════════
+💰 销售额: {data['销售额']}
+🏦 奖池金额: {data['奖池金额']}
 
-# ===== 主程序入口 =====
+🥇 一等奖：{data['一等奖注数']} 注，单注奖金 {data['一等奖金额']} 元
+🥈 二等奖：{data['二等奖注数']} 注，单注奖金 {data['二等奖金额']} 元
+
+🌐 官方网站：{LOTTERY_CONFIG['ssq']['official']}
+"""
+    else:
+        # 大乐透 前区 + 后区
+        nums = data['开奖号码'].replace(',', '').split()
+        front = ' '.join([f"🟡{num}" for num in nums[:5]])
+        back = ' '.join([f"🔵{num}" for num in nums[5:]])
+        msg = f"""✨【超级大乐透第 {data['期号']}期】开奖结果✨
+⏰ 开奖日期：{data['开奖日期']}
+🎲 开奖号码：
+══════════════
+{front}   {back}
+══════════════
+💰 销售额: {data['销售额']}
+🏦 奖池金额: {data['奖池金额']}
+
+🌐 官方网站：{LOTTERY_CONFIG['dlt']['official']}
+"""
+    return msg
+
+
+# ✅ 主程序
 if __name__ == "__main__":
     print("🚀 启动彩票开奖程序...\n")
-    key, config = get_today_lottery()
+    lottery_type, config = get_today_lottery()
     if not config:
         exit(0)
-    message = fetch_latest_lottery(config)
-    if message:
-        print("✅ 抓取成功，准备发送通知...")
-        notify.send(f"{config['name']}最新开奖", message)
+
+    try:
+        if lottery_type == 'ssq':
+            data = get_latest_ssq()
+        else:
+            data = get_latest_dlt()
+        message = format_message(lottery_type, data)
+        print(message)
+        notify.send(f"{LOTTERY_CONFIG[lottery_type]['name']}开奖信息", message)
         print("✅ 通知发送完成")
-    else:
-        print("❌ 抓取失败")
+    except Exception as e:
+        print(f"❌ 抓取或发送通知失败: {e}")
