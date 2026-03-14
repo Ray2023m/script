@@ -459,38 +459,65 @@ class FNSignIn:
                 return {}
         logger.error(f"获取签到信息失败，已达到最大重试次数({Config.MAX_RETRIES})")
         return {}
-    
     def run(self):
-        """运行签到流程，带重试机制"""
+        """运行签到流程，带Cookie自动刷新"""
         logger.info("===== 开始运行签到脚本 =====")
         notify_content = ""
         result_title = ""
+
+        # 第一次检查登录状态
         if not self.check_login_status():
+            logger.warning("Cookie可能失效，尝试重新登录")
             if not self.login():
                 logger.error("登录失败，签到流程终止")
                 result_title = "FnOS论坛 签到失败"
                 notify_content = "登录失败，流程终止"
                 notify.send(result_title, notify_content)
                 return False
+
+        # 获取签到状态
         sign_text, sign_param = self.check_sign_status()
+
+        # 如果获取不到签到状态，可能Cookie过期
+        if sign_text is None or sign_param is None:
+            logger.warning("获取签到状态失败，Cookie可能失效，尝试重新登录刷新Cookie")
+
+            if self.login():
+                logger.info("重新登录成功，刷新Cookie")
+                sign_text, sign_param = self.check_sign_status()
+            else:
+                logger.error("重新登录失败")
+                result_title = "FnOS论坛 签到失败"
+                notify_content = "Cookie失效且重新登录失败"
+                notify.send(result_title, notify_content)
+                return False
+
         if sign_text is None or sign_param is None:
             logger.error("获取签到状态失败，签到流程终止")
             result_title = "FnOS论坛 签到失败"
             notify_content = "获取签到状态失败"
             notify.send(result_title, notify_content)
             return False
+
         logger.info(f"当前签到状态: {sign_text}")
+
         if sign_text == "点击打卡":
             logger.info("开始执行签到...")
+
             if self.do_sign(sign_param):
                 sign_info = self.get_sign_info()
+
                 if sign_info:
                     logger.info("===== 签到信息 =====")
                     for key, value in sign_info.items():
                         logger.info(f"{key}: {value}")
+
                     result_title = "FnOS论坛 签到成功"
-                    notify_content = "\n".join([f"{key}: {value}" for key, value in sign_info.items()])
+                    notify_content = "\n".join(
+                        [f"{key}: {value}" for key, value in sign_info.items()]
+                    )
                     notify.send(result_title, notify_content)
+
                 return True
             else:
                 logger.error("签到失败")
@@ -498,17 +525,25 @@ class FNSignIn:
                 notify_content = "签到失败"
                 notify.send(result_title, notify_content)
                 return False
+
         elif sign_text == "今日已打卡":
             logger.info("今日已签到，无需重复签到")
+
             sign_info = self.get_sign_info()
+
             if sign_info:
                 logger.info("===== 签到信息 =====")
                 for key, value in sign_info.items():
                     logger.info(f"{key}: {value}")
+
                 result_title = "FnOS论坛 今日已打卡"
-                notify_content = "\n".join([f"{key}: {value}" for key, value in sign_info.items()])
+                notify_content = "\n".join(
+                    [f"{key}: {value}" for key, value in sign_info.items()]
+                )
                 notify.send(result_title, notify_content)
+
             return True
+
         else:
             logger.warning(f"未知的签到状态: {sign_text}，签到流程终止")
             result_title = "FnOS论坛 签到失败"
