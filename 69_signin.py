@@ -7,92 +7,161 @@ new Env('69机场签到');
 此脚本来源于https://github.com/cmliussss2024/CF-Workers-checkin，感谢原作者付出！
 通过 AI修改，以适用于青龙面板。
 '''
-import requests
 import os
-import warnings
-import notify  
-from urllib3.exceptions import InsecureRequestWarning
+import requests
+import time
+import re
+from bs4 import BeautifulSoup
+from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from notify import send  # ✅ 青龙通知
 
-# 忽略所有 InsecureRequestWarning 警告
-warnings.simplefilter('ignore', InsecureRequestWarning)
+# ========== 全局 ==========
+session = requests.Session()
+retries = Retry(total=3, backoff_factor=1)
+session.mount('http://', HTTPAdapter(max_retries=retries))
+session.mount('https://', HTTPAdapter(max_retries=retries))
 
-# ========= 简化配置读取 =========
-account_str = os.getenv("ACCOUNT", "域名|邮箱|密码").strip()
 
-try:
-    domain, email, password = account_str.split("|")
-except ValueError:
-    raise Exception("❌ ACCOUNT 格式错误，应为: 域名|邮箱|密码")
-
-def checkin():
+# ========== 获取用户信息 ==========
+def fetch_and_extract_info(domain, headers):
     try:
-        # 如果域名不包含 http 或 https，自动加上 https 前缀
-        if not domain.startswith("http"):
-            domain_full = f"https://{domain}"
-        else:
-            domain_full = domain
+        url = f"{domain}/user"
+        res = session.get(url, headers=headers, timeout=10)
 
-        session = requests.Session()
-        
-        # 登录请求
-        login_resp = session.post(
-            f"{domain_full}/auth/login",
-            headers={
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 Chrome/129.0.0.0',
-                'Accept': 'application/json, text/plain, */*',
-            },
-            json={
-                "email": email,
-                "passwd": password,
-                "remember_me": "on",
-                "code": ""
-            },
-            verify=False  # 禁用 SSL 证书验证
-        )
+        if res.status_code != 200:
+            return "用户信息获取失败\n"
 
-        # 检查登录请求是否成功
-        login_resp.raise_for_status()
-        login_result = login_resp.json()
+        soup = BeautifulSoup(res.text, 'html.parser')
 
-        if login_result.get("ret") != 1:
-            raise Exception(f"登录失败: {login_result.get('msg', '未知错误')}")
+        script_tags = soup.find_all('script')
+        chatra_script = None
 
-        print("✅ 登录成功")
+        for script in script_tags:
+            if 'window.ChatraIntegration' in str(script):
+                chatra_script = script.string
+                break
 
-        # 签到请求
-        checkin_resp = session.post(
-            f"{domain_full}/user/checkin",
-            headers={
-                'User-Agent': 'Mozilla/5.0 Chrome/129.0.0.0',
-                'Accept': 'application/json, text/plain, */*',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        )
+        if not chatra_script:
+            return "未获取到用户信息\n"
 
-        # 检查签到请求是否成功
-        checkin_resp.raise_for_status()
-        result = checkin_resp.json()
-        msg = result.get("msg", "无返回信息")
-        status = "✅ 成功" if result.get("ret") == 1 else "⚠️ 可能失败"
+        expire = re.search(r"'Class_Expire': '(.*?)'", chatra_script)
+        traffic = re.search(r"'Unused_Traffic': '(.*?)'", chatra_script)
 
-        final_msg = f"🎉 签到结果: {status}\n{msg}"
-        print(final_msg)
+        info = ""
+        info += f"到期时间: {expire.group(1) if expire else '未知'}\n"
+        info += f"剩余流量: {traffic.group(1) if traffic else '未知'}\n"
 
-        # 调用 notify 模块的 send 函数发送通知，传递 title 和 content 参数
-        title = "✈️69机场签到通知"  # 设置标题
-        notify.send(title=title, content=final_msg)
+        link_match = re.search(r"https://.*?/link/.*?\?sub=\d+", res.text)
+        if link_match:
+            base = link_match.group(0).split("?")[0]
+            info += f"订阅: {base}?sub=3\n"
 
-    except requests.exceptions.RequestException as e:
-        # 捕获网络请求相关异常
-        error_msg = f"❌ 网络请求失败: {str(e)}"
-        print(error_msg)
-        notify.send(title="签到错误", content=error_msg)
+        return info + "\n"
+
     except Exception as e:
-        # 捕获其他异常
-        error_msg = f"❌ 签到异常: {str(e)}"
-        print(error_msg)
-        notify.send(title="签到异常", content=error_msg)
+        return f"用户信息异常: {e}\n"
 
-if __name__ == '__main__':
-    checkin()
+
+# ========== 读取青龙变量 ==========
+def load_config():
+    domain = os.getenv("DOMAIN", "").strip()
+
+    accounts = []
+    i = 1
+
+    while True:
+        user = os.getenv(f"USER{i}")
+        pwd = os.getenv(f"PASS{i}")
+
+        if not user or not pwd:
+            break
+
+        accounts.append({"user": user, "pass": pwd})
+        i += 1
+
+    return domain, accounts
+
+
+# ========== 核心签到 ==========
+def checkin(account, domain):
+    user = account["user"]
+    pwd = account["pass"]
+
+    print(f"开始处理账号: {user}")
+
+    try:
+        login_url = f"{domain}/auth/login"
+
+        res = session.post(
+            login_url,
+            json={
+                "email": user,
+                "passwd": pwd,
+                "remember_me": "on"
+            },
+            timeout=10
+        )
+
+        if res.status_code != 200:
+            return f"{user} ❌ 登录请求失败"
+
+        data = res.json()
+
+        if data.get("ret") != 1:
+            return f"{user} ❌ 登录失败: {data.get('msg')}"
+
+        cookies = res.cookies.get_dict()
+
+        headers = {
+            "Cookie": "; ".join([f"{k}={v}" for k, v in cookies.items()]),
+            "User-Agent": "Mozilla/5.0",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+
+        # 签到
+        res = session.post(f"{domain}/user/checkin", headers=headers, timeout=10)
+
+        result = res.json()
+        msg = result.get("msg", "未知结果")
+
+        user_info = fetch_and_extract_info(domain, headers)
+
+        return (
+            f"👤 {user}\n"
+            f"📌 {msg}\n"
+            f"{user_info}"
+        )
+
+    except Exception as e:
+        return f"{user} ❌ 异常: {e}"
+
+
+# ========== 主程序 ==========
+if __name__ == "__main__":
+    domain, accounts = load_config()
+
+    if not domain:
+        print("❌ 请设置 DOMAIN")
+        exit()
+
+    if not accounts:
+        print("❌ 未配置账号")
+        exit()
+
+    print("========== 开始签到 ==========")
+
+    all_msg = ""
+
+    for acc in accounts:
+        result = checkin(acc, domain)
+        print(result)
+        print("----------------------------------")
+        all_msg += result + "\n"
+
+    print("========== 结束 ==========")
+
+    # ✅ 青龙通知
+    title = "🎉 机场签到结果"
+    send(title, all_msg)
