@@ -1,3 +1,11 @@
+'''
+69机场签到脚本
+cron: 40 6 * * *
+new Env('69机场签到');
+添加环境变量：ACCOUNT=your.airport.com|you@example.com|yourpassword
+脚本由网上收集,ai修改完善,仅供学习交流使用,请勿用于商业用途,如有侵权请联系删除
+'''
+
 import os
 import requests
 import re
