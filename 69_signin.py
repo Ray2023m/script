@@ -1,23 +1,27 @@
-'''
-cron: 40 6 * * *
-new Env('69机场签到');
-
-使用方法：
-青龙面板添加环境变量：ACCOUNT= 69机场地址|注册邮箱|yourpassword
-此脚本来源于https://github.com/cmliussss2024/CF-Workers-checkin，感谢原作者付出！
-通过 AI修改，以适用于青龙面板。
-'''
 import os
 import requests
-import time
 import re
 from bs4 import BeautifulSoup
-from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from notify import send  # ✅ 青龙通知
+from notify import send
 
-# ========== 全局 ==========
+# ========== 读取配置 ==========
+account_str = os.getenv("ACCOUNT", "").strip()
+
+if not account_str:
+    raise Exception("❌ 请设置 ACCOUNT=域名|邮箱|密码")
+
+try:
+    domain, email, password = account_str.split("|")
+except ValueError:
+    raise Exception("❌ ACCOUNT 格式错误，应为: 域名|邮箱|密码")
+
+# 自动补 https
+if not domain.startswith("http"):
+    domain = f"https://{domain}"
+
+# ========== Session ==========
 session = requests.Session()
 retries = Retry(total=3, backoff_factor=1)
 session.mount('http://', HTTPAdapter(max_retries=retries))
@@ -25,10 +29,9 @@ session.mount('https://', HTTPAdapter(max_retries=retries))
 
 
 # ========== 获取用户信息 ==========
-def fetch_and_extract_info(domain, headers):
+def fetch_and_extract_info(headers):
     try:
-        url = f"{domain}/user"
-        res = session.get(url, headers=headers, timeout=10)
+        res = session.get(f"{domain}/user", headers=headers, timeout=10)
 
         if res.status_code != 200:
             return "用户信息获取失败\n"
@@ -64,55 +67,35 @@ def fetch_and_extract_info(domain, headers):
         return f"用户信息异常: {e}\n"
 
 
-# ========== 读取青龙变量 ==========
-def load_config():
-    domain = os.getenv("DOMAIN", "").strip()
-
-    accounts = []
-    i = 1
-
-    while True:
-        user = os.getenv(f"USER{i}")
-        pwd = os.getenv(f"PASS{i}")
-
-        if not user or not pwd:
-            break
-
-        accounts.append({"user": user, "pass": pwd})
-        i += 1
-
-    return domain, accounts
-
-
 # ========== 核心签到 ==========
-def checkin(account, domain):
-    user = account["user"]
-    pwd = account["pass"]
-
-    print(f"开始处理账号: {user}")
-
+def checkin():
     try:
-        login_url = f"{domain}/auth/login"
+        print(f"开始签到: {email}")
 
+        # 登录
         res = session.post(
-            login_url,
+            f"{domain}/auth/login",
             json={
-                "email": user,
-                "passwd": pwd,
+                "email": email,
+                "passwd": password,
                 "remember_me": "on"
+            },
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Content-Type": "application/json"
             },
             timeout=10
         )
 
         if res.status_code != 200:
-            return f"{user} ❌ 登录请求失败"
+            return "❌ 登录请求失败"
 
         data = res.json()
 
         if data.get("ret") != 1:
-            return f"{user} ❌ 登录失败: {data.get('msg')}"
+            return f"❌ 登录失败: {data.get('msg')}"
 
-        cookies = res.cookies.get_dict()
+        cookies = session.cookies.get_dict()
 
         headers = {
             "Cookie": "; ".join([f"{k}={v}" for k, v in cookies.items()]),
@@ -122,46 +105,29 @@ def checkin(account, domain):
 
         # 签到
         res = session.post(f"{domain}/user/checkin", headers=headers, timeout=10)
-
         result = res.json()
+
         msg = result.get("msg", "未知结果")
 
-        user_info = fetch_and_extract_info(domain, headers)
+        user_info = fetch_and_extract_info(headers)
 
         return (
-            f"👤 {user}\n"
+            f"👤 {email}\n"
             f"📌 {msg}\n"
             f"{user_info}"
         )
 
     except Exception as e:
-        return f"{user} ❌ 异常: {e}"
+        return f"❌ 异常: {e}"
 
 
 # ========== 主程序 ==========
 if __name__ == "__main__":
-    domain, accounts = load_config()
-
-    if not domain:
-        print("❌ 请设置 DOMAIN")
-        exit()
-
-    if not accounts:
-        print("❌ 未配置账号")
-        exit()
-
     print("========== 开始签到 ==========")
 
-    all_msg = ""
-
-    for acc in accounts:
-        result = checkin(acc, domain)
-        print(result)
-        print("----------------------------------")
-        all_msg += result + "\n"
+    result = checkin()
+    print(result)
 
     print("========== 结束 ==========")
 
-    # ✅ 青龙通知
-    title = "🎉 机场签到结果"
-    send(title, all_msg)
+    send("🎉 机场签到结果", result)
